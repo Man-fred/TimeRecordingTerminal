@@ -2,6 +2,8 @@
 // Released under Creative Commons - CC by cooper@my.makesmart.net
 #include "defines.h";
 
+String mVersionNr = "V00-00-01.";
+
 char ssid[32] = "\0";
 char passwort[64] = "\0";
 char serverHost[LOGINLAENGE] = "192.168.178.1"; //IP des Servers 
@@ -502,6 +504,7 @@ void connectWifi() {
                     case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, "Gehen          "); break;
                     case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, "Gehen Krank    "); break;
                     case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, "Dienstgang     "); break;
+                    case '0' : ota(); break;
                     default  : snprintf(satzArt, 3, "FO"); displayText(3, "               "); break;
                   }
                   //displayChar(0,3, keymap[j][i]);
@@ -608,6 +611,30 @@ void Serial_Task() {
     } else {
       eingabe[eingabePos++] = Zeichen;
     }
+  }
+}
+
+void ota(){
+#ifdef ESP32
+  WiFiClient wifiClient;
+  t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
+#else      
+  t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
+#endif
+  
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      DEBUG_OUTPUT.println("[update] Update failed: "); 
+      break;
+    case HTTP_UPDATE_NO_UPDATES:
+      DEBUG_OUTPUT.println("[update] Update no Update.");
+      break;
+    case HTTP_UPDATE_OK:
+      DEBUG_OUTPUT.println("[update] Update ok."); // may not called we reboot the ESP
+      break;
+    default:
+      DEBUG_OUTPUT.println("[update] Update default?");
+      break;
   }
 }
 

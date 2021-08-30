@@ -4,7 +4,6 @@
 #include "Arduino.h"
 #include "defines.h"
 
-String mVersionNr = "V00-00-00.";
 #ifdef IICTEST
 # ifdef USE_LED_BUILTIN
     String mVersionVariante = "iic.";
