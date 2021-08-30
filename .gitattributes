@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+*.html linguist-detectable=false
+*.css linguist-detectable=false
+*.pde linguist-detectable=false
+*.js linguist-detectable=false
+*.ino linguist-detectable=true
