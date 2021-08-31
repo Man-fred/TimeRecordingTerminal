@@ -37,7 +37,7 @@ void LeseEeprom(char *daten, int laenge)
 int LeseEeprom()
 {
   int a;
-  a = EEPROM.read(z);
+  EEPROM.get(z, a);
   z=z+4;
   return (a);
 }
@@ -58,7 +58,7 @@ void LeseEepromStr(String *daten, int laenge)
 
 void SchreibeEeprom (int k)
 {
-	EEPROM.write(z, k);
+	EEPROM.put(z, k);
     z=z+4;
 }
 
