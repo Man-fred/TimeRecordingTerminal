@@ -4,17 +4,6 @@
 #include "Arduino.h"
 #include "defines.h"
 
-String mVersionNr = "V00-00-00.";
-#ifdef IICTEST
-# ifdef USE_LED_BUILTIN
-    String mVersionVariante = "iic.";
-# else
-    String mVersionVariante = "i2c.";
-# endif
-#else
-  String mVersionVariante = "min.";
-#endif //ifdef IICTEST
-
 #ifdef ARDUINO_ESP8266_NODEMCU
   const byte board = 1;
   String mVersionBoard = "nodemcu";
@@ -25,8 +14,6 @@ String mVersionNr = "V00-00-00.";
   const byte board = 3;
   String mVersionBoard = "unknown";
 #endif
-//EEPROM-Version
-  char versionNeu[2] = "1";
 
 // enables OTA updates
 #include <ESP8266httpUpdate.h>

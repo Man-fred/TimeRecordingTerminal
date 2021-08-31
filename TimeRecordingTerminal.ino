@@ -2,9 +2,17 @@
 // Released under Creative Commons - CC by cooper@my.makesmart.net
 #include "defines.h";
 
+//Update-Version
+String mVersionNr = "V00-00-04.";
+//EEPROM-Version
+char versionNeu[2] = "2";
+
+//Sketch
+String mVersionVariante = "trt.";
+
 char ssid[32] = "\0";
 char passwort[64] = "\0";
-char serverHost[LOGINLAENGE] = "192.168.178.1"; //IP des Servers 
+char serverHost[LOGINLAENGE] = ""; //IP des Servers 
 int  serverPort = 0; //Port des Servers (ServerSocket) 
 char terminalId[4] = "99";
 const char* satzKennung = "X";
@@ -98,7 +106,7 @@ unsigned long messageWait[3] = {0, 0, 0};
 
 //send and replay
 char data[80];
-char dataReturn[21];
+char dataReturn[42];
 int offlineCount = 0;
 int offlineSend = 0;
 
@@ -239,6 +247,13 @@ bool sendToServer()
       Serial.println("file offline open failed");
     }
   }
+  if (offlineCount == offlineSend && offlineCount > 0) {
+    LittleFS.remove("/data/offline");
+    LittleFS.remove("/data/01");
+    offlineCount = 0;
+    offlineSend = 0;
+  }
+
   client.println(data); 
   delay(100); 
  
@@ -247,7 +262,7 @@ bool sendToServer()
   if (line.length() == 0){
     myConnected = false;
   } else {
-    line.toCharArray(dataReturn, 21);
+    line.toCharArray(dataReturn, 42);
     //Serial.print("Online:");
     //Serial.print(line); 
     //Serial.println(); 
@@ -256,6 +271,11 @@ bool sendToServer()
     //Serial.println(); 
     
     displayText(2, dataReturn, 4);
+    if (line.length() > 22) {
+      displayText(3, dataReturn+21,4);
+    } else {
+      displayText(3, "                     ");
+    }
   }
   /*Verbindung zum Server schliessen*/ 
   //Serial.println("Verbindung schliessen"); 
@@ -302,7 +322,7 @@ void sendAndReplay(long id) {
       //Serial.println(data);
       snprintf(data, 21, "gelesen: %d         ", id) ;
       displayText(2, data, 4);
-      snprintf(data, message3+2, "Offline: %d          ", offlineCount) ;
+      snprintf(data, message3+2, "Offline: %d          ", (offlineCount - offlineSend) ) ;
       displayText(3, data);
     }
 }
@@ -502,6 +522,7 @@ void connectWifi() {
                     case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, "Gehen          "); break;
                     case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, "Gehen Krank    "); break;
                     case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, "Dienstgang     "); break;
+                    case '0' : ota(); break;
                     default  : snprintf(satzArt, 3, "FO"); displayText(3, "               "); break;
                   }
                   //displayChar(0,3, keymap[j][i]);
@@ -531,6 +552,7 @@ void configRead() {
   LeseEeprom(terminalId, 4);
   LeseEeprom(serverHost, LOGINLAENGE);
   serverPort = LeseEeprom();
+  serverPort = 17010;
                                           // check 67
   LeseEepromCheck();
   EEPROM.end();
@@ -543,6 +565,7 @@ void configRead() {
     //strcpy(timeserver, "time.nist.gov");
     //strcpy(device_name, "Zeit");
   }
+  configWrite();
 }
 void configWrite() {
   z = 0;
@@ -601,6 +624,7 @@ void Serial_Task() {
                    }
                    break;
         
+        case 'r' : configRead(); break;
         case 'p' : configPrint(); break;
         case 'w' : configWrite(); break;
       }
@@ -608,6 +632,35 @@ void Serial_Task() {
     } else {
       eingabe[eingabePos++] = Zeichen;
     }
+  }
+}
+
+void ota(){
+  displayText(2, "Suche Update ...");
+#ifdef ESP32
+  WiFiClient wifiClient;
+  t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
+#else      
+  t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
+#endif
+  
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      DEBUG_OUTPUT.println("[update] Update failed: "); 
+      displayText(2, "Update fehlgeschlagen", 4);
+      break;
+    case HTTP_UPDATE_NO_UPDATES:
+      DEBUG_OUTPUT.println("[update] Update no Update.");
+      displayText(2, "Version ist aktuell", 4);
+      break;
+    case HTTP_UPDATE_OK:
+      DEBUG_OUTPUT.println("[update] Update ok."); // may not called we reboot the ESP
+      displayText(2, "Update erfolgreich", 4);
+      break;
+    default:
+      DEBUG_OUTPUT.println("update] Update default?");
+      displayText(2, "Update default?", 4);
+      break;
   }
 }
 
@@ -661,8 +714,6 @@ void setup() {
     #endif
 # endif
     LittleFS.begin();
-    //LittleFS.remove("/data/offline");
-    //LittleFS.remove("/data/01");
     File fin = LittleFS.open("/data/01", "r");
     if (fin) {
       offlineCount = fin.size()/51;

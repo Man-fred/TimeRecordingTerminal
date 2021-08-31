@@ -1,0 +1,9 @@
+*** DEMO ***
+22.04.2019 - 09:02 Start update, client 192.168.178.68, User-Agent ESP8266-http-Update, ESP-MAC 5C:CF:7F:14:6E:F9, AP-MAC 5E:CF:7F:14:6E:F9, Version V01-04-06.ino.d1_mini, free space 696320, sketch size 351648, chip size 4194304, sdk version 1.5.4(baaeaebb)
+22.04.2019 - 09:02 Update V01-06-01.ino.d1_mini.bin ok
+23.04.2019 - 20:55 Start update, client 192.168.178.45, User-Agent ESP8266-http-Update, ESP-MAC 18:FE:34:D6:12:C8, AP-MAC 1A:FE:34:D6:12:C8, Version V01-04-06.ino.nodemcu, free space 724992, sketch size 323328, chip size 4194304, sdk version 1.5.3(aec24ac9)
+23.04.2019 - 20:55 Update V01-06-01.ino.nodemcu.bin ok
+28.04.2019 - 17:29 Start update, client 192.168.178.75, User-Agent ESP8266-http-Update, ESP-MAC 5C:CF:7F:80:80:A2, AP-MAC 5E:CF:7F:80:80:A2, Version V01-05-09.ino.nodemcu, free space 2768896, sketch size 376576, chip size 4194304, sdk version 3.0.0-dev(c0f7b44)
+28.04.2019 - 17:29 Update V01-06-01.ino.nodemcu.bin ok
+*** Over-the-air-Updates ***
+
