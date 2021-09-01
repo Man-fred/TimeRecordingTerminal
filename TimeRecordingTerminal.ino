@@ -296,7 +296,7 @@ void sendAndReplay(long id) {
     //snprintf(data, 80, "%s %s %10d 4d%2d%2d%2d%2d%2d       ", message[3][messageWIFI], terminal, id, year(), month(), day(),hour(), minute(), second()) ;
     //R_11J22223__44_________5555555566666666777777____
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second()) ;
-    snprintf(data, 80, "R%2s1J2222%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
+    snprintf(data, 80, "R_%2sJ2222%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
 
     //sendToServer();
     if (sendToServer()) {
