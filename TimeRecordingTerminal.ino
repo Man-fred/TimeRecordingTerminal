@@ -1,6 +1,6 @@
 // Basic MFRC522 RFID Reader Code by cooper @ my.makesmart.net
 // Released under Creative Commons - CC by cooper@my.makesmart.net
-#include "defines.h";
+#include "defines.h"
 
 //Update-Version
 String mVersionNr = "V00-00-04.";
@@ -15,7 +15,7 @@ char passwort[64] = "\0";
 char serverHost[LOGINLAENGE] = ""; //IP des Servers 
 int  serverPort = 0; //Port des Servers (ServerSocket) 
 char terminalId[4] = "99";
-const char* satzKennung = "X";
+char satzKennung = 'X';
 
 #include <stdio.h>
 
@@ -23,8 +23,8 @@ const char* satzKennung = "X";
 #include <EEPROM.h>
 #include <LittleFS.h>
 
-#include "common.h";
-#include "myFS.h";
+#include "common.h"
+#include "myFS.h"
 //#include "log.h"
 #include "ntp.h"
 
@@ -274,7 +274,7 @@ bool sendToServer()
     if (line.length() > 22) {
       displayText(3, dataReturn+21,4);
     } else {
-      displayText(3, "                     ");
+      displayText(3, (char *)"                     ");
     }
   }
   /*Verbindung zum Server schliessen*/ 
@@ -296,7 +296,7 @@ void sendAndReplay(long id) {
     //snprintf(data, 80, "%s %s %10d 4d%2d%2d%2d%2d%2d       ", message[3][messageWIFI], terminal, id, year(), month(), day(),hour(), minute(), second()) ;
     //R_11J22223__44_________5555555566666666777777____
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second()) ;
-    snprintf(data, 80, "R_%2sJ2222%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
+    snprintf(data, 80, "R_%2sJ2222%c__%2s_________%08ld%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
 
     //sendToServer();
     if (sendToServer()) {
@@ -320,7 +320,7 @@ void sendAndReplay(long id) {
       /////////////////////////////////////////dataWrite();
       //Serial.print("Offline:");
       //Serial.println(data);
-      snprintf(data, 21, "gelesen: %d         ", id) ;
+      snprintf(data, 21, "gelesen: %ld         ", id) ;
       displayText(2, data, 4);
       snprintf(data, message3+2, "Offline: %d          ", (offlineCount - offlineSend) ) ;
       displayText(3, data);
@@ -435,7 +435,7 @@ void connectWifi() {
       WiFi.disconnect();
       WiFi.mode(WIFI_STA);                                            // Disable AP mode
       WiFi.begin(ssid, passwort);
-      displayText(1, "Connecting to:      ");
+      displayText(1, (char*)"Connecting to:      ");
       snprintf(data, 21, "%s                  ", ssid);
       displayText(2, data);
     } else if (WifiCounter >= 30){
@@ -518,12 +518,12 @@ void connectWifi() {
                       myBacklight = !myBacklight;
                       lcd.setBacklight(myBacklight); 
                       break;
-                    case 'A' : snprintf(satzArt, 3, "KO"); displayText(3, "Kommen         "); break;
-                    case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, "Gehen          "); break;
-                    case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, "Gehen Krank    "); break;
-                    case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, "Dienstgang     "); break;
+                    case 'A' : snprintf(satzArt, 3, "KO"); displayText(3, (char*)"Kommen         "); break;
+                    case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, (char*)"Gehen          "); break;
+                    case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, (char*)"Gehen Krank    "); break;
+                    case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, (char*)"Dienstgang     "); break;
                     case '0' : ota(); break;
-                    default  : snprintf(satzArt, 3, "FO"); displayText(3, "               "); break;
+                    default  : snprintf(satzArt, 3, "FO"); displayText(3, (char*)"               "); break;
                   }
                   //displayChar(0,3, keymap[j][i]);
                 }
@@ -636,7 +636,7 @@ void Serial_Task() {
 }
 
 void ota(){
-  displayText(2, "Suche Update ...");
+  displayText(2, (char*)"Suche Update ...");
 #ifdef ESP32
   WiFiClient wifiClient;
   t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
@@ -647,19 +647,19 @@ void ota(){
   switch (ret) {
     case HTTP_UPDATE_FAILED:
       DEBUG_OUTPUT.println("[update] Update failed: "); 
-      displayText(2, "Update fehlgeschlagen", 4);
+      displayText(2, (char*)"Update fehlgeschlagen", 4);
       break;
     case HTTP_UPDATE_NO_UPDATES:
       DEBUG_OUTPUT.println("[update] Update no Update.");
-      displayText(2, "Version ist aktuell", 4);
+      displayText(2, (char*)"Version ist aktuell", 4);
       break;
     case HTTP_UPDATE_OK:
       DEBUG_OUTPUT.println("[update] Update ok."); // may not called we reboot the ESP
-      displayText(2, "Update erfolgreich", 4);
+      displayText(2, (char*)"Update erfolgreich", 4);
       break;
     default:
       DEBUG_OUTPUT.println("update] Update default?");
-      displayText(2, "Update default?", 4);
+      displayText(2, (char*)"Update default?", 4);
       break;
   }
 }
@@ -698,7 +698,7 @@ void setup() {
         }
 
         lcd.home ();                   // go home
-        displayText(1, "Display ok");
+        displayText(1, (char*)"Display ok");
         
         /*for ( int i = 0; i < charBitmapSize; i++ )
         {
@@ -727,7 +727,7 @@ void setup() {
    
     
     FSInfo fs_info;
-    SPIFFS.info(fs_info);
+    LittleFS.info(fs_info);
     Serial.println("totalBytes " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
   // Details vom MFRC522 RFID READER / WRITER ausgeben
   //Kurze Pause nach dem Initialisieren   
@@ -739,8 +739,8 @@ void loop() {
   unsigned long myNow = now();
 
   if (chipID > 0) {
-    displayText(1, "Karte bitte ...     ") ;
-    displayText(2, "                    ");
+    displayText(1, (char*)"Karte bitte ...     ") ;
+    displayText(2, (char*)"                    ");
     //CardID resetten
     chipID = 0;
     snprintf(satzArt, 3, "FO");

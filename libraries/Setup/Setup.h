@@ -6,7 +6,7 @@ unsigned int hexToDec(String hexString) {
   unsigned int decValue = 0;
   int nextInt;
 
-  for (int i = 0; i < hexString.length(); i++) {
+  for (unsigned int i = 0; i < hexString.length(); i++) {
 
     nextInt = int(hexString.charAt(i));
     if (nextInt >= 48 && nextInt <= 57) nextInt = map(nextInt, 48, 57, 0, 9);
@@ -64,10 +64,10 @@ void SchreibeEeprom (int k)
 
 void SchreibeEeprom (String k, byte len)
 {
-  int i = 0, blja = 64;
-  int  pos, wert;
-  //char Buchstabe;
+  int i = 0;
   /*
+  int  pos, wert, blja = 64;
+  //char Buchstabe;
 	String HexZahl, ersatz = "f";
   k.replace("+", " ");
 

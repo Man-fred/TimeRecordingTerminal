@@ -27,5 +27,5 @@
 #define COOKIE_ADMINISTRATOR 1
 #define COOKIE_BENUTZER 2
 
-#define SPIFFS LittleFS
+//#define SPIFFS LittleFS
 #endif
