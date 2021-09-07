@@ -18,6 +18,7 @@ unsigned long sendNTPpacket(IPAddress& address);
 /**
    NTP senden und empfangen
 */
+void sendNTP(void);
 unsigned long GetNTP(void);
 
 String PrintTime (unsigned long epoch);

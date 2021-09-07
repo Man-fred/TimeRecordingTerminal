@@ -3,7 +3,7 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-00-04.";
+String mVersionNr = "V00-00-06.";
 //EEPROM-Version
 char versionNeu[2] = "2";
 
@@ -90,7 +90,10 @@ unsigned long WifiNext = 0;   // paused
 unsigned long WifiConnected = 0;
 
 //Time
-unsigned long myTime = 0;
+int NTPCounter = 0; // connect 1 .. 30
+int NTPFails = 0;   // 
+unsigned long NTPNext = 0;   // paused
+unsigned long myTime = 0, myTime10 = 0;
 unsigned long myTimeFromTics = 0;
 
 //Display
@@ -105,6 +108,8 @@ char messageLater[3][21] = {LEER, LEER, LEER};
 unsigned long messageWait[3] = {0, 0, 0};
 
 //send and replay
+WiFiClient client; 
+bool ServerOk = false;
 char data[80];
 char dataReturn[42];
 int offlineCount = 0;
@@ -112,6 +117,7 @@ int offlineSend = 0;
 
 //RFC
 long chipID = 1;
+long chipIDPrev = 0;
 // MFRC522-Instanz erstellen
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
@@ -190,99 +196,116 @@ void displayChar(int pos, int row, char myChar){
   #endif
 }
 
-bool sendToServer()
-{
-  bool myConnected = false;
+bool connectServer(){
   if (!WifiConnected){
     return false;
   }
-
-  WiFiClient client; 
-   
   if (!client.connect(serverHost, serverPort)) { 
-    //Serial.print("X"); 
     return false; 
   } 
-
-  myConnected = true;
   Serial.println(); 
   Serial.print("Verbunden mit "); 
   Serial.println(serverHost); 
- 
-  //Serial.print("Nachricht an Server senden: "); 
-  // Serial.println(data); 
-  // Daten im Offline-Speicher?
-  
-  while (myConnected && offlineCount > offlineSend){
-    File fin = LittleFS.open("/data/01", "r");
-    if (fin) {
-      fin.seek((offlineSend-1)*51, SeekSet);
-      if(fin.available()){
-        // '\n' is not included in the returned string, but the last char '\r' is
-        String line=fin.readStringUntil('\n');
-        Serial.print("SE-Line: ");
-        Serial.println(line);
-          client.println(line); 
-        delay(100); 
-        /*Echo vom Server lesen und verwerfen, da alte Daten*/ 
-        line = client.readStringUntil('\n'); 
-        if (line.length() == 0){
-          myConnected = false;
-        } else {
-          offlineSend++;
-          File fout = LittleFS.open("/data/offline", "a");
-          if (fout) {
-            fout.write(offlineSend);
-            int offlineData = fout.size();
-            fout.close();
-            Serial.print("SE-Size: ");
-            Serial.println(offlineData);
-          } else {
-            Serial.println("file offline open failed");
-          }
-        }
-      }
-      fin.close();
-    } else {
-      Serial.println("file offline open failed");
-    }
-  }
-  if (offlineCount == offlineSend && offlineCount > 0) {
-    LittleFS.remove("/data/offline");
-    LittleFS.remove("/data/01");
-    offlineCount = 0;
-    offlineSend = 0;
-  }
+  displayChar(messageONL, 3, 'O');
+  return true;
+}
 
-  client.println(data); 
-  delay(100); 
- 
-  /*Echo vom Server lesen und ausgeben*/ 
-  String line = client.readStringUntil('\n'); 
-  if (line.length() == 0){
-    myConnected = false;
-  } else {
-    line.toCharArray(dataReturn, 42);
-    //Serial.print("Online:");
-    //Serial.print(line); 
-    //Serial.println(); 
-    //Serial.print("Online:");
-    //Serial.print(data); 
-    //Serial.println(); 
-    
-    displayText(2, dataReturn, 4);
-    if (line.length() > 22) {
-      displayText(3, dataReturn+21,4);
-    } else {
-      displayText(3, (char *)"                     ");
-    }
-  }
+bool closeServer(){
   /*Verbindung zum Server schliessen*/ 
   //Serial.println("Verbindung schliessen"); 
   client.flush(); 
   client.stop(); 
   //Serial.println("Verbindung geschlossen");  
-  return myConnected;
+  return true;
+}
+
+void testServer(){
+  if (!ServerOk){
+    if (connectServer()){
+      ServerOk = closeServer();
+    }
+  }
+}
+
+bool sendToServer(bool onlyOffline = false){
+  bool myConnected = true;
+  if (connectServer()){
+    // Daten im Offline-Speicher?
+    while (myConnected && offlineCount > offlineSend){
+      File fin = LittleFS.open("/data/01", "r");
+      if (fin) {
+        fin.seek((offlineSend-1)*51, SeekSet);
+        if(fin.available()){
+          // '\n' is not included in the returned string, but the last char '\r' is
+          String line=fin.readStringUntil('\n');
+          Serial.print("SE-Line: ");
+          Serial.println(line);
+          client.println(line); 
+          delay(100); 
+          /*Echo vom Server lesen und verwerfen, da alte Daten*/ 
+          line = client.readStringUntil('\n'); 
+          if (line.length() == 0){
+            myConnected = false;
+          } else {
+            line.toCharArray(dataReturn, 42);
+            displayText(3, dataReturn+21);
+            offlineSend++;
+            File fout = LittleFS.open("/data/offline", "a");
+            if (fout) {
+              fout.write(offlineSend);
+              int offlineData = fout.size();
+              fout.close();
+              Serial.print("SE-Size: ");
+              Serial.println(offlineData);
+            } else {
+              Serial.println("file offline open failed");
+            }
+          }
+        }
+        fin.close();
+      } else {
+        Serial.println("file offline open failed");
+      }
+    }
+    if (offlineCount == offlineSend && offlineCount > 0) {
+      LittleFS.remove("/data/offline");
+      LittleFS.remove("/data/01");
+      offlineCount = 0;
+      offlineSend = 0;
+    }
+    
+    if (!onlyOffline){
+      Serial.print("Nachricht an Server senden: "); 
+      Serial.println(data); 
+      client.println(data); 
+      delay(100); 
+     
+      /*Echo vom Server lesen und ausgeben*/ 
+      String line = client.readStringUntil('\n'); 
+      if (line.length() == 0){
+        myConnected = false;
+      } else {
+        line.toCharArray(dataReturn, 42);
+        //Serial.print("Online:");
+        //Serial.print(line); 
+        //Serial.println(); 
+        //Serial.print("Online:");
+        //Serial.print(data); 
+        //Serial.println(); 
+        
+        displayText(2, dataReturn, 4);
+        if (line.length() > 22) {
+          displayText(3, dataReturn+21,4);
+        } else {
+          displayText(3, (char *)"                     ");
+        }
+      }
+    }
+    ServerOk = closeServer();
+  } else {
+    ServerOk = false;
+  }
+  return ServerOk;
 }
 
 void sendAndReplay(long id) {
@@ -299,9 +322,7 @@ void sendAndReplay(long id) {
     snprintf(data, 80, "R_%2sJ2222%c__%2s_________%08ld%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
 
     //sendToServer();
-    if (sendToServer()) {
-      displayChar(messageONL, 3, 'O');
-    } else {
+    if (!sendToServer()) {
       displayChar(messageONL, 3, '-');
       offlineCount++;
       //save to File and send later
@@ -372,55 +393,74 @@ void testIIC()
 }
 #endif
 
-void Zeit_Einstellen()
-{
-  if (NTPok) {
-    if(abs(NTPTime - now()) > 5) {
-      //LogSchreibenNow("falsche Zeit");
-      //Serial.println( Temp );
-      //setTime(NTPTime);
-      //LogSchreiben("NTP: Zeit gesetzt");
-      //Serial.println( Temp );
-    }
-  } else {
-    if (WifiConnected > 0) {
-      NTPTime = GetNTP();
-      setTime(NTPTime);
-      NTPok = (NTPTime > 0);
-    } else {
-      NTPTime = 0;
-      NTPok = false;
-    }
-  }
-  if (NTPok) {
-    displayChar(messageNTP, 3, 'T');
-  } else {
-    displayChar(messageNTP, 3, '-');
-  }
-
+void getRTC(){
 # ifdef IIC_RTC
     if (RTCok) {
       RTCTime = RTC.now().unixtime();
-      if (NTPok) {
-        if(abs(RTCTime - NTPTime) > 5) {
-          Temp = PrintDate(RTCTime) + "   " + PrintTime(RTCTime) + "   falsche RTC-Zeit";
-          //LogSchreiben(Temp);
-          //Serial.println( Temp );
-          RTCSync = NTPTime;
-          RTC.adjust(DateTime(year(NTPTime), month(NTPTime), day(NTPTime), hour(NTPTime), minute(NTPTime), second(NTPTime)));
-        }
-      } else {
-        if(abs(RTCTime - now()) > 5) {
-          //LogSchreibenNow("falsche Zeit");
-          setTime(RTCTime);
-          //LogSchreiben("RTC: Zeit gesetzt");
-        }
+      nowTime = now();
+      if(RTCTime > nowTime ? RTCTime - nowTime > 5 : nowTime - RTCTime > 5) {
+        //LogSchreibenNow("falsche Zeit");
+        setTime(RTCTime);
+        //LogSchreiben("RTC: Zeit gesetzt");
       }
       displayChar(messageRTC, 3, 'R');
     } else {
       displayChar(messageRTC, 3, '-');
     }
 # endif
+}
+
+
+void Zeit_Einstellen()
+{
+  if (NTPok && NTPNext < myTime) {
+    NTPok      = false;
+    NTPCounter = 0;
+    NTPFails   = 0;
+  }
+  if (!NTPok && NTPNext < myTime) {
+    if (WifiConnected > 0) {
+      NTPCounter++;
+      if (NTPCounter == 1){
+        sendNTP();
+      } else  if (NTPCounter >= 30){
+        NTPFails++;
+        NTPCounter = 0;
+        if (NTPFails > 4){
+          // 30 Min. Pause, dann neu testen
+          NTPNext = myTime + 30*60;
+        }
+      } else {
+        NTPTime = GetNTP();
+        if (NTPTime > 0){
+          // ok, ab jetzt alle 6 Stunden NTP prüfen
+          NTPok = true;
+          NTPNext = myTime + 6*60*60;
+          displayChar(messageNTP, 3, 'T');
+          setTime(NTPTime);
+          RTCTime = RTC.now().unixtime();
+          if(RTCTime > NTPTime ? RTCTime - NTPTime > 5 : NTPTime - RTCTime > 5) {
+            Temp = PrintDate(RTCTime) + "   " + PrintTime(RTCTime) + "   falsche RTC-Zeit";
+            Serial.println( Temp );
+            //LogSchreiben(Temp);
+            //Serial.println( Temp );
+            RTCSync = NTPTime;
+            RTC.adjust(DateTime(year(NTPTime), month(NTPTime), day(NTPTime), hour(NTPTime), minute(NTPTime), second(NTPTime)));
+            RTCTime = RTC.now().unixtime();
+            Temp = PrintDate(RTCTime) + "   " + PrintTime(RTCTime) + "   richtige RTC-Zeit";
+            Serial.println( Temp );
+          }
+          if(abs(NTPTime - now()) > 5) {
+            //LogSchreibenNow("falsche Zeit");
+            //Serial.println( Temp );
+            //LogSchreiben("NTP: Zeit gesetzt");
+            //Serial.println( Temp );
+          }
+        }
+      }
+    }
+  }
+  getRTC();
   //displayText(3, message[3]);
 }
 
@@ -526,6 +566,7 @@ void connectWifi() {
                     default  : snprintf(satzArt, 3, "FO"); displayText(3, (char*)"               "); break;
                   }
                   //displayChar(0,3, keymap[j][i]);
+                  chipIDPrev = 0;
                 }
               }
             }
@@ -713,30 +754,34 @@ void setup() {
       }
     #endif
 # endif
-    LittleFS.begin();
-    File fin = LittleFS.open("/data/01", "r");
-    if (fin) {
-      offlineCount = fin.size()/51;
-      fin.close();
-    }
-    File fout = LittleFS.open("/data/offline", "r");
-    if (fout) {
-      offlineSend = fout.size();
-      fout.close();
-    }
-   
-    
-    FSInfo fs_info;
-    LittleFS.info(fs_info);
-    Serial.println("totalBytes " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
+  LittleFS.begin();
+  File fin = LittleFS.open("/data/01", "r");
+  if (fin) {
+    offlineCount = fin.size()/51;
+    fin.close();
+  }
+  File fout = LittleFS.open("/data/offline", "r");
+  if (fout) {
+    offlineSend = fout.size();
+    fout.close();
+  }
+  
+  FSInfo fs_info;
+  LittleFS.info(fs_info);
+  Serial.println("totalBytes " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
   // Details vom MFRC522 RFID READER / WRITER ausgeben
   //Kurze Pause nach dem Initialisieren   
   //delay(10);
   //mfrc522.PCD_DumpVersionToSerial();  
+  
+  displayChar(messageNTP, 3, '-');
+  displayChar(messageONL, 3, '-');
+  getRTC();
 }
 
 void loop() {
   unsigned long myNow = now();
+  unsigned long myNow10 = 0;
 
   if (chipID > 0) {
     displayText(1, (char*)"Karte bitte ...     ") ;
@@ -752,6 +797,14 @@ void loop() {
     connectWifi();          // Try to connect WiFi aSync
     if (WifiConnected > 0 ){
       Zeit_Einstellen();
+      myNow10 = myNow / 10;
+      if (myNow10 != myTime10){
+        myTime10 = myNow10;
+        testServer();
+        if (offlineCount > offlineSend){
+          sendToServer(true);
+        }
+      }
     }
     snprintf(message[0], 21, "%02d.%02d.%04d %02d:%02d:%02d ", day(), month(), year(),hour(), minute(), second()) ;
     displayText();
@@ -765,8 +818,9 @@ void loop() {
       chipID=((chipID+mfrc522.uid.uidByte[i])*10);
     }
 
-    //... und anschließend ausgegeben
-    if (chipID > 0) {
+    //... und anschließend ausgegeben wenn nicht doppelt
+    if (chipID > 0 and chipID != chipIDPrev) {
+      chipIDPrev = chipID;
       sendAndReplay(chipID);
     }
     

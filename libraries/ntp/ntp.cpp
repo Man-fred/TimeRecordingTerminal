@@ -1,5 +1,5 @@
-#include "ntp.h";
-#include "defines.h";
+#include "ntp.h"
+#include "defines.h"
 #include <ESP8266WiFi.h>
 
 IPAddress timeServerIP;
@@ -55,49 +55,46 @@ unsigned long sendNTPpacket(IPAddress& address)
 /**
    NTP senden und empfangen
 */
-  unsigned long GetNTP(void) {
-  unsigned long ntp_time = 0;
+void sendNTP(void) {
   NTPok = false;
-
   udp.begin(2390);
+  
   WiFi.hostByName(timeserver, timeServerIP);
   sendNTPpacket(timeServerIP);
+}
+
+unsigned long GetNTP(void) {
+  unsigned long ntp_time = 0;
   int cb = udp.parsePacket();
-  delay(500);
-  int timout1 = 0;
-  while (cb  < NTP_PACKET_SIZE)
+  if (cb  >= NTP_PACKET_SIZE)
   {
-    timout1++;
-    if  (timout1 > 20) return 0;                  // 10s Timout
-    cb = udp.parsePacket();
-    delay(500);
+	  Serial.print("packet received, length=");
+	  Serial.println(cb);
+	  // We've received a packet, read the data from it
+	  udp.read(packetBuffer, NTP_PACKET_SIZE);
+	  //the timestamp starts at byte 40 of the received packet and is four bytes,
+	  // or two words, long. First, esxtract the two words:
+	  unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
+	  unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+	  // combine the four bytes (two words) into a long integer
+	  // this is NTP time (seconds since Jan 1 1900):
+	  unsigned long secsSince1900 = highWord << 16 | lowWord;
+	  // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
+	  const unsigned long seventyYears = 2208988800UL;
+	  // subtract seventy years:
+	  unsigned long epoch = secsSince1900 - seventyYears;
+	  // local time from UTC
+	  ntp_time = epoch + TIMEZONE * 3600;
+	  Serial.print("Unix local time = ");
+	  Serial.println(ntp_time);
+	  if (SUMMERTIME && summertime(year(ntp_time), month(ntp_time), day(ntp_time),  hour(ntp_time), TIMEZONE)) {
+		ntp_time += 3600;
+		sommerzeit = true;
+	  } else {
+		sommerzeit = false;
+	  }
+	  NTPok = true;
   }
-  Serial.print("packet received, length=");
-  Serial.println(cb);
-  // We've received a packet, read the data from it
-  udp.read(packetBuffer, NTP_PACKET_SIZE);
-  //the timestamp starts at byte 40 of the received packet and is four bytes,
-  // or two words, long. First, esxtract the two words:
-  unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
-  unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
-  // combine the four bytes (two words) into a long integer
-  // this is NTP time (seconds since Jan 1 1900):
-  unsigned long secsSince1900 = highWord << 16 | lowWord;
-  // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
-  const unsigned long seventyYears = 2208988800UL;
-  // subtract seventy years:
-  unsigned long epoch = secsSince1900 - seventyYears;
-  // local time from UTC
-  ntp_time = epoch + TIMEZONE * 3600;
-  Serial.print("Unix local time = ");
-  Serial.println(ntp_time);
-  if (SUMMERTIME && summertime(year(ntp_time), month(ntp_time), day(ntp_time),  hour(ntp_time), TIMEZONE)) {
-    ntp_time += 3600;
-    sommerzeit = true;
-  } else {
-    sommerzeit = false;
-  }
-  NTPok = true;
   return ntp_time;
 }
 
