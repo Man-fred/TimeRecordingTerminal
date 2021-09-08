@@ -450,12 +450,14 @@ void Zeit_Einstellen()
             Temp = PrintDate(RTCTime) + "   " + PrintTime(RTCTime) + "   richtige RTC-Zeit";
             Serial.println( Temp );
           }
+          /*
           if(abs(NTPTime - now()) > 5) {
             //LogSchreibenNow("falsche Zeit");
             //Serial.println( Temp );
             //LogSchreiben("NTP: Zeit gesetzt");
             //Serial.println( Temp );
           }
+          */
         }
       }
     }
