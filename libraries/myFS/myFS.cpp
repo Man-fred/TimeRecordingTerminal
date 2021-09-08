@@ -155,6 +155,7 @@ void handleNotFound() {
   server.send ( 404, "text/plain", message );
 }
 
+/*
 void update_Version() {
   if (is_authentified()) {
     server.sendHeader("Location", "/index.htm");
@@ -164,7 +165,7 @@ void update_Version() {
     switch (ret) {
       case HTTP_UPDATE_FAILED:
         LogSchreibenNow("[update] " + mVersionNr + mVersionVariante + mVersionBoard + " Update failed.");
-        LogSchreibenNow(/*ESPhttpUpdate.getLastError() +" "+*/ ESPhttpUpdate.getLastErrorString().c_str());
+        LogSchreibenNow(/ *ESPhttpUpdate.getLastError() +" "+* / ESPhttpUpdate.getLastErrorString().c_str());
         break;
       case HTTP_UPDATE_NO_UPDATES:
         DBG_OUTPUT_PORT.println("[update] " + mVersionNr + mVersionVariante + mVersionBoard + " No update.");
@@ -174,10 +175,10 @@ void update_Version() {
         break;
       default:
         LogSchreibenNow("[update] " + mVersionNr + mVersionVariante + mVersionBoard + " unknown error");
-        LogSchreibenNow(/*ESPhttpUpdate.getLastError() +" "+*/ ESPhttpUpdate.getLastErrorString().c_str());
+        LogSchreibenNow(/ *ESPhttpUpdate.getLastError() +" "+* / ESPhttpUpdate.getLastErrorString().c_str());
         break;
     }
   }
 }
-
+*/
 
