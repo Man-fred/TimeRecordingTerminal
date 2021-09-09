@@ -451,12 +451,14 @@ void Zeit_Einstellen()
             Temp = PrintDate(RTCTime) + "   " + PrintTime(RTCTime) + "   richtige RTC-Zeit";
             Serial.println( Temp );
           }
+          /*
           if(abs(NTPTime - now()) > 5) {
             //LogSchreibenNow("falsche Zeit");
             //Serial.println( Temp );
             //LogSchreiben("NTP: Zeit gesetzt");
             //Serial.println( Temp );
           }
+          */
         }
       }
     }
@@ -679,11 +681,12 @@ void Serial_Task() {
 
 void ota(){
   displayText(2, (char*)"Suche Update ...");
-#ifdef ESP32
   WiFiClient wifiClient;
+#ifdef ESP32
   t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
 #else      
-  t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
+  //t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
 #endif
   
   switch (ret) {
