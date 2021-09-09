@@ -129,42 +129,43 @@ String Temp = "";
 
 // Display
 void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0) {
+  byte rowEnd = 0;
+  rowEnd = (row == 3 ? message3 : 21);
   switch (row) {
     case 1 : 
     case 2 : 
-      if (messageWait[row-1]>0 && rowWait == 0)
+    case 3 : 
+      if (messageWait[row-1]>0 && rowWait == 0) {
         memcpy(messageLater[row-1], rowMessage, 21);
-      else
-        memcpy(message[row], rowMessage, 21);
+      } else {
+        memcpy(message[row], rowMessage,  rowEnd);
+        message[row][rowEnd] = 0;
+      }
       if (rowWait > 0){
         messageWait[row-1] = myTime + rowWait;
         memcpy(messageLater[row-1], rowMessage, 21);
       }
       break;
-    case 3 : 
+      /*
       lcd.setCursor ( 0, 3 );
       for (byte i=0; i<message3; i++){
         //memcpy(message[row], rowMessage, message3);
         message[3][i] = (rowMessage[i] != 0 ? rowMessage[i] : ' ') ;
         lcd.print (message[3][i]);
       }
-      /*message[3][message3] = ' ';
-      message[3][messageONL] = myConnected ? 'O' : '-';
-      message[3][messageRTC] = myConnected ? 'R' : '-';
-      message[3][messageNTP] = myConnected ? 'N' : '-';
-      message[3][messageWIFI] = myConnected ? 'W' : '-';*/
+      */
       break;
   }
   #ifdef IIC_DISPLAY
-    if (row < 3){
+    if (row < 4){
       lcd.setCursor ( 0, row );        // go to the next line
       lcd.print (message[row]);
     }
   #endif
   
-  for (int i=0;i<2;i++){
+  for (int i=0;i<3;i++){
     if (messageWait[i]>0 && myTime >= messageWait[i]){
-      memcpy(message[i+1], messageLater[i],21);
+      memcpy(message[i+1], messageLater[i], rowEnd);
       messageWait[i] = 0;
       #ifdef IIC_DISPLAY
         lcd.setCursor ( 0, i+1 );        // go to the next line
@@ -172,7 +173,7 @@ void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0
       #endif
     }
   }
-  if (row > 0 && row < 3){
+  if (row > 0 && row < 4){
     for (int i=0; i<4;i++){
       if (row == i){
         Serial.print(message[i]);
