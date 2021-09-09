@@ -54,14 +54,13 @@ int z = 0;                   //Aktuelle EEPROM-Adresse zum lesen
 
 // Creat a set of new characters
 const uint8_t charBitmap[][8] = {
-   { 0xc, 0x12, 0x12, 0xc, 0, 0, 0, 0 },
-   { 0x6, 0x9, 0x9, 0x6, 0, 0, 0, 0 },
-   { 0x0, 0x6, 0x9, 0x9, 0x6, 0, 0, 0x0 },
-   { 0x0, 0xc, 0x12, 0x12, 0xc, 0, 0, 0x0 },
-   { 0x0, 0x0, 0xc, 0x12, 0x12, 0xc, 0, 0x0 },
-   { 0x0, 0x0, 0x6, 0x9, 0x9, 0x6, 0, 0x0 },
-   { 0x0, 0x0, 0x0, 0x6, 0x9, 0x9, 0x6, 0x0 },
-   { 0x0, 0x0, 0x0, 0xc, 0x12, 0x12, 0xc, 0x0 }
+   { 0b01010, 0b00000, 0b01110, 0b00001, 0b01111, 0b10001, 0b01111, 0b00000 },
+   { 0b01010, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01111, 0b00000 },
+   { 0b01010, 0b00000, 0b10001, 0b10001, 0b10001, 0b10011, 0b01101, 0b00000 },
+   { 0b10001, 0b00100, 0b01010, 0b10001, 0b11111, 0b10001, 0b10001, 0b00000 },
+   { 0b10001, 0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110, 0b00000 },
+   { 0b10001, 0b00000, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110, 0b00000 },
+   { 0b01100, 0b10010, 0b10010, 0b11110, 0b10001, 0b10001, 0b11110, 0b10000 }
 };
 
 #endif
@@ -159,7 +158,22 @@ void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0
   #ifdef IIC_DISPLAY
     if (row < 4){
       lcd.setCursor ( 0, row );        // go to the next line
-      lcd.print (message[row]);
+      //lcd.print (message[row]);
+      rowEnd = (row == 3 ? message3 : 21);
+      for (byte j = 0; j<rowEnd && message[row][j] > 0; j++) {
+        switch (message[row][j]) {
+          case 132 /*ä*/ : lcd.write(byte(0)); break;
+          case 148 /*ö*/ : lcd.write(byte(1)); break;
+          case 129 /*ü*/ : lcd.write(byte(2)); break;
+          case 142 /*Ä*/ : lcd.write(byte(3)); break;
+          case 153 /*Ö*/ : lcd.write(byte(4)); break;
+          case 154 /*Ü*/ : lcd.write(byte(5)); break;
+          case 225 /*ß*/ : lcd.write(byte(6)); break;
+          case 0   : break;
+          default  : lcd.print(message[row][j]); break;
+        }
+        //Serial.print((int)message[row][j]);Serial.println(message[row][j]);
+      }
     }
   #endif
   
@@ -169,7 +183,22 @@ void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0
       messageWait[i] = 0;
       #ifdef IIC_DISPLAY
         lcd.setCursor ( 0, i+1 );        // go to the next line
-        lcd.print (message[i+1]);
+        //lcd.print (message[i+1]);
+        rowEnd = (i == 2 ? message3 : 21);
+        for (byte j = 0; j<rowEnd && message[i+1][j] > 0; j++) {
+          switch (message[i+1][j]) {
+            case 132 /*ä*/ : lcd.write(byte(0)); break;
+            case 148 /*ö*/ : lcd.write(byte(1)); break;
+            case 129 /*ü*/ : lcd.write(byte(2)); break;
+            case 142 /*Ä*/ : lcd.write(byte(3)); break;
+            case 153 /*Ö*/ : lcd.write(byte(4)); break;
+            case 154 /*Ü*/ : lcd.write(byte(5)); break;
+            case 225 /*ß*/ : lcd.write(byte(6)); break;
+            case 0   : break;
+            default  : lcd.print(message[i+1][j]); break;
+          }
+          //Serial.print((int)message[row][j]);Serial.println(message[row][j]);
+        }
       #endif
     }
   }
@@ -296,9 +325,9 @@ bool sendToServer(bool onlyOffline = false){
         
         displayText(2, dataReturn, 4);
         if (line.length() > 22) {
-          displayText(3, dataReturn+21,4);
+          displayText(3, dataReturn+20,4);
         } else {
-          displayText(3, (char *)"                     ");
+          displayText(3, (char *)"               ");
         }
       }
     }
@@ -344,7 +373,7 @@ void sendAndReplay(long id) {
       //Serial.println(data);
       snprintf(data, 21, "gelesen: %ld         ", id) ;
       displayText(2, data, 4);
-      snprintf(data, message3+2, "Offline: %d          ", (offlineCount - offlineSend) ) ;
+      snprintf(data, message3, "Offline: %d          ", (offlineCount - offlineSend) ) ;
       displayText(3, data);
     }
 }
@@ -525,10 +554,9 @@ void connectWifi() {
     uint8_t keymapX = 0;
     if (pcf8574Active){
       test = pcf8574.read8();
-      //if (test != 0x0F){
       if (test != 0xF0){
-        //Serial.print("keypad1 ");
-        //Serial.println(test, BIN);
+        Serial.print("keypad ");
+        Serial.println(test, BIN);
         for (i = 0; i < keymapCols; i++){
           pcf8574.write8(~(0x08 >> i)); // links nach rechts
           //pcf8574.write8(0xF0 | (0x08 >> i)); // links nach rechts
@@ -744,17 +772,6 @@ void setup() {
 
         lcd.home ();                   // go home
         displayText(1, (char*)"Display ok");
-        
-        /*for ( int i = 0; i < charBitmapSize; i++ )
-        {
-          lcd.createChar ( i, (uint8_t *)charBitmap[i] );
-        }
-      
-        lcd.home ();                   // go home
-        lcd.print("Hello, ARDUINO ");  
-        lcd.setCursor ( 0, 1 );        // go to the next line
-        lcd.print (" FORUM - fm   ");
-        */
       }
     #endif
 # endif
@@ -790,6 +807,7 @@ void loop() {
   if (chipID > 0) {
     displayText(1, (char*)"Karte bitte ...     ") ;
     displayText(2, (char*)"                    ");
+    displayText(3, (char*)"               ");
     //CardID resetten
     chipID = 0;
     snprintf(satzArt, 3, "FO");
