@@ -3,12 +3,14 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-00-06.";
+String mVersionNr = "V00-00-08.";
 //EEPROM-Version
 char versionNeu[2] = "2";
 
 //Sketch
 String mVersionVariante = "trt.";
+
+char keypass[21];
 
 char ssid[32] = "\0";
 char passwort[64] = "\0";
@@ -92,7 +94,7 @@ unsigned long WifiConnected = 0;
 int NTPCounter = 0; // connect 1 .. 30
 int NTPFails = 0;   // 
 unsigned long NTPNext = 0;   // paused
-unsigned long myTime = 0, myTime10 = 0;
+unsigned long myTime = 0, myTime10 = 0, myTime600 = 0;
 unsigned long myTimeFromTics = 0;
 
 //Display
@@ -105,6 +107,11 @@ const byte messageNTP = 18;
 const byte messageWIFI = 19;
 char messageLater[3][21] = {LEER, LEER, LEER};
 unsigned long messageWait[3] = {0, 0, 0};
+
+//Keypad
+char keypad[21] = LEER;
+byte keypadPos  = 0;
+bool keypadUnlocked = false;
 
 //send and replay
 WiFiClient client; 
@@ -127,9 +134,35 @@ char version[2] = "0";
 String Temp = "";
 
 // Display
-void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0) {
+void displayZeile(int row, char* rowMessage){
+  #ifdef IIC_DISPLAY
+  bool ende = false;
   byte rowEnd = 0;
-  rowEnd = (row == 3 ? message3 : 21);
+  
+  rowEnd = (row == 3 ? message3 : 20);
+  lcd.setCursor ( 0, row );        // go to the next line
+  for (byte j = 0; j < rowEnd; j++) {
+    if (rowMessage[j] == 0)
+      ende = true;
+    if (ende)
+      lcd.print(' ');
+    else
+      switch (rowMessage[j]) {
+        case 132 /*ä*/ : lcd.write(byte(0)); break;
+        case 148 /*ö*/ : lcd.write(byte(1)); break;
+        case 129 /*ü*/ : lcd.write(byte(2)); break;
+        case 142 /*Ä*/ : lcd.write(byte(3)); break;
+        case 153 /*Ö*/ : lcd.write(byte(4)); break;
+        case 154 /*Ü*/ : lcd.write(byte(5)); break;
+        case 225 /*ß*/ : lcd.write(byte(6)); break;
+        default  : lcd.print(rowMessage[j]); break;
+      }
+    //Serial.print((int)message[row][j]);Serial.println(message[row][j]);
+  }
+  #endif
+}
+
+void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0) {
   switch (row) {
     case 1 : 
     case 2 : 
@@ -137,69 +170,24 @@ void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0
       if (messageWait[row-1]>0 && rowWait == 0) {
         memcpy(messageLater[row-1], rowMessage, 21);
       } else {
-        memcpy(message[row], rowMessage,  rowEnd);
-        message[row][rowEnd] = 0;
+        memcpy(message[row], rowMessage,  21);
+        //message[row][21] = 0;
       }
       if (rowWait > 0){
         messageWait[row-1] = myTime + rowWait;
         memcpy(messageLater[row-1], rowMessage, 21);
       }
       break;
-      /*
-      lcd.setCursor ( 0, 3 );
-      for (byte i=0; i<message3; i++){
-        //memcpy(message[row], rowMessage, message3);
-        message[3][i] = (rowMessage[i] != 0 ? rowMessage[i] : ' ') ;
-        lcd.print (message[3][i]);
-      }
-      */
-      break;
   }
-  #ifdef IIC_DISPLAY
-    if (row < 4){
-      lcd.setCursor ( 0, row );        // go to the next line
-      //lcd.print (message[row]);
-      rowEnd = (row == 3 ? message3 : 21);
-      for (byte j = 0; j<rowEnd && message[row][j] > 0; j++) {
-        switch (message[row][j]) {
-          case 132 /*ä*/ : lcd.write(byte(0)); break;
-          case 148 /*ö*/ : lcd.write(byte(1)); break;
-          case 129 /*ü*/ : lcd.write(byte(2)); break;
-          case 142 /*Ä*/ : lcd.write(byte(3)); break;
-          case 153 /*Ö*/ : lcd.write(byte(4)); break;
-          case 154 /*Ü*/ : lcd.write(byte(5)); break;
-          case 225 /*ß*/ : lcd.write(byte(6)); break;
-          case 0   : break;
-          default  : lcd.print(message[row][j]); break;
-        }
-        //Serial.print((int)message[row][j]);Serial.println(message[row][j]);
-      }
-    }
-  #endif
+  if (row < 4){
+    displayZeile(row, message[row]);
+  }
   
   for (int i=0;i<3;i++){
     if (messageWait[i]>0 && myTime >= messageWait[i]){
-      memcpy(message[i+1], messageLater[i], rowEnd);
+      memcpy(message[i+1], messageLater[i], 21);
       messageWait[i] = 0;
-      #ifdef IIC_DISPLAY
-        lcd.setCursor ( 0, i+1 );        // go to the next line
-        //lcd.print (message[i+1]);
-        rowEnd = (i == 2 ? message3 : 21);
-        for (byte j = 0; j<rowEnd && message[i+1][j] > 0; j++) {
-          switch (message[i+1][j]) {
-            case 132 /*ä*/ : lcd.write(byte(0)); break;
-            case 148 /*ö*/ : lcd.write(byte(1)); break;
-            case 129 /*ü*/ : lcd.write(byte(2)); break;
-            case 142 /*Ä*/ : lcd.write(byte(3)); break;
-            case 153 /*Ö*/ : lcd.write(byte(4)); break;
-            case 154 /*Ü*/ : lcd.write(byte(5)); break;
-            case 225 /*ß*/ : lcd.write(byte(6)); break;
-            case 0   : break;
-            default  : lcd.print(message[i+1][j]); break;
-          }
-          //Serial.print((int)message[row][j]);Serial.println(message[row][j]);
-        }
-      #endif
+      displayZeile(i+1, message[i+1]);
     }
   }
   if (row > 0 && row < 4){
@@ -249,9 +237,23 @@ bool closeServer(){
   return true;
 }
 
-void testServer(){
+void testServer(bool command = false){
   if (!ServerOk){
     if (connectServer()){
+      if (command){
+        snprintf(data, 80, "R_%2sJ2222%c__CC", terminalId, satzKennung, satzArt);
+        client.println(data); 
+        delay(100); 
+        /*Echo vom Server lesen und eventuellen Befehl ausführen*/ 
+        String line = client.readStringUntil('\n'); 
+        if (strcmp(line.c_str(),"update") == 0) {
+          ota();
+        } else {
+          Serial.print("command?");
+          Serial.print(line);
+          Serial.println("?command");
+        }
+      }
       ServerOk = closeServer();
     }
   }
@@ -278,8 +280,10 @@ bool sendToServer(bool onlyOffline = false){
             myConnected = false;
           } else {
             line.toCharArray(dataReturn, 42);
-            displayText(3, dataReturn+21);
+            displayText(3, dataReturn+20);
             offlineSend++;
+            snprintf(data, message3, "Offline: %d          ", (offlineCount - offlineSend) ) ;
+            displayText(3, data);
             File fout = LittleFS.open("/data/offline", "a");
             if (fout) {
               fout.write(offlineSend);
@@ -302,6 +306,7 @@ bool sendToServer(bool onlyOffline = false){
       LittleFS.remove("/data/01");
       offlineCount = 0;
       offlineSend = 0;
+      displayText(3, (char *)LEER);
     }
     
     if (!onlyOffline){
@@ -327,7 +332,7 @@ bool sendToServer(bool onlyOffline = false){
         if (line.length() > 22) {
           displayText(3, dataReturn+20,4);
         } else {
-          displayText(3, (char *)"               ");
+          displayText(3, (char *)"");
         }
       }
     }
@@ -538,7 +543,7 @@ void connectWifi() {
   #define keymapCols 4
   #define keymapClick true
   boolean keymapPause = true;
-  uint8_t pcf8574Last[keymapCols]= {0};
+  //uint8_t pcf8574Last[keymapCols]= {0};
   const char keymap[keymapRows][keymapCols + 1] =
   {
     "123A",
@@ -555,46 +560,66 @@ void connectWifi() {
     if (pcf8574Active){
       test = pcf8574.read8();
       if (test != 0xF0){
-        Serial.print("keypad ");
-        Serial.println(test, BIN);
-        for (i = 0; i < keymapCols; i++){
-          pcf8574.write8(~(0x08 >> i)); // links nach rechts
-          //pcf8574.write8(0xF0 | (0x08 >> i)); // links nach rechts
-          delay(3);
-          test = ~(pcf8574.read8());
-          //Serial.print("keypad2 ");
-          //Serial.println(test, BIN);
-          if (keymapPause){
-            pcf8574Last[i] = 0;
-            keymapPause = false;
-          }
-          if (test != pcf8574Last[i]){
-            pcf8574Last[i] = test;
+        //Serial.print("keypad ");Serial.println(test, BIN);
+        if (keymapPause){
+          //pcf8574Last[i] = 0;
+          keymapPause = false;
+          
+          for (i = 0; i < keymapCols; i++){
+            pcf8574.write8(~(0x08 >> i)); // links nach rechts
+            delay(3);
+            test = ~(pcf8574.read8());
+            //Serial.print("keypad2 ");Serial.println(test, BIN);
             if (test > 0x0F){
               for (j = 0; j < keymapRows; j++){
                 test2 = (0x80 >> j);
-                //Serial.print("keypad3 ");
-                //Serial.println(test2, BIN);
+                //Serial.print("keypad3 ");Serial.println(test2, BIN);
                 keymapX = test & test2;
                 if (keymapX){
-                  // keyclick(keymapClick, 220, 100);
-                  //serialInSet(keymap[j][i]);
-                  //if (keymap[j][i] == serialKeypadEnd){
-                    //serialInSet(0x0A);
-                  //}
-                  Serial.print("keypad  ");
-                  Serial.println(keymap[j][i]);
+                  //Serial.print("keypad  ");Serial.println(keymap[j][i]);
                   switch (keymap[j][i]){
                     case '*' : 
                       myBacklight = !myBacklight;
                       lcd.setBacklight(myBacklight); 
                       break;
-                    case 'A' : snprintf(satzArt, 3, "KO"); displayText(3, (char*)"Kommen         "); break;
-                    case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, (char*)"Gehen          "); break;
-                    case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, (char*)"Gehen Krank    "); break;
-                    case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, (char*)"Dienstgang     "); break;
+                    case '#' : 
+                      keypadPos = 0;
+                      keypad[0] = 0;
+                      displayText(3, (char *)"#"); 
+                      keypadUnlocked = false;
+                      break;
+                    case 'A' : snprintf(satzArt, 3, "KO"); displayText(3, (char*)"Kommen"); break;
+                    case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, (char*)"Gehen"); break;
+                    case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, (char*)"Gehen Krank"); break;
+                    case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, (char*)"Dienstgang"); break;
                     case '0' : ota(); break;
-                    default  : snprintf(satzArt, 3, "FO"); displayText(3, (char*)"               "); break;
+                    //default  : snprintf(satzArt, 3, "FO"); displayText(3, (char*)""); break;
+                    default  : 
+                      if (!keypadUnlocked) {
+                        if (keypadPos == 21){
+                          keypadPos = 0;
+                        }
+                        keypad[keypadPos] = keymap[j][i]; 
+                        keypadPos++;
+                        keypad[keypadPos] = 0; 
+                        
+                        Serial.print("keypad  ");
+                        Serial.print(keypadPos);
+                        Serial.println(keymap[j][i]);
+  
+                        if (strcmp(keypad, keypass) != 0) {
+                          displayText(3, keypad);  
+                        } else {
+                          keypadUnlocked = true;
+                          keypadPos = 0;
+                          keypad[0] = 0;
+                          displayText(3, (char*)"unlocked", 4);
+                        }
+                      } else {
+                        if (keymap[j][i] == '0') ota();
+                        
+                      }
+                      break;
                   }
                   //displayChar(0,3, keymap[j][i]);
                   chipIDPrev = 0;
@@ -626,6 +651,7 @@ void configRead() {
   serverPort = LeseEeprom();
   serverPort = 17010;
                                           // check 67
+  LeseEeprom(keypass, LOGINLAENGE);
   LeseEepromCheck();
   EEPROM.end();
   //if (version[0] != versionNeu[0] || !LeseEepromCheck())
@@ -652,6 +678,7 @@ void configWrite() {
   SchreibeEeprom(terminalId, 4);
   SchreibeEeprom(serverHost, LOGINLAENGE);
   SchreibeEeprom(serverPort);
+  SchreibeEeprom(keypass, LOGINLAENGE);
   SchreibeEepromCheck();
   EEPROM.commit();
   EEPROM.end();
@@ -667,6 +694,7 @@ void configPrint() {
   Serial.println(terminalId);
   Serial.println(serverHost);
   Serial.println(serverPort);
+  Serial.println(keypass);
   //LeseEepromCheck();
 }
 
@@ -695,6 +723,7 @@ void Serial_Task() {
                      serverPort = serverPort * 10 + ziffer; 
                    }
                    break;
+        case 'i' : for (pos=0; pos<=eingabePos; pos++) keypass[pos] = eingabe[pos+1]; break;
         
         case 'r' : configRead(); break;
         case 'p' : configPrint(); break;
@@ -803,29 +832,42 @@ void setup() {
 void loop() {
   unsigned long myNow = now();
   unsigned long myNow10 = 0;
+  unsigned long myNow600 = 0;
 
   if (chipID > 0) {
-    displayText(1, (char*)"Karte bitte ...     ") ;
-    displayText(2, (char*)"                    ");
-    displayText(3, (char*)"               ");
+    displayText(1, (char*)"Karte bitte ...") ;
+    displayText(2, (char*)"");
+    displayText(3, (char*)"");
     //CardID resetten
     chipID = 0;
     snprintf(satzArt, 3, "FO");
   }
   if (myTime != myNow) {
+    // loop per second
     myTime = myNow;
     myTimeFromTics = millis() / 1000;
     //WiFi check
     connectWifi();          // Try to connect WiFi aSync
     if (WifiConnected > 0 ){
       Zeit_Einstellen();
-      myNow10 = myNow / 10;
+      myNow10  = myNow / 10;
+      myNow600 = myNow / 600;
       if (myNow10 != myTime10){
+        // loop per 10 seconds
         myTime10 = myNow10;
-        testServer();
+        testServer(myNow600 != myTime600);
+        if (myNow600 != myTime600){
+          // loop per 10 minutes
+          myTime600 = myNow600;
+        }
         if (offlineCount > offlineSend){
           sendToServer(true);
         }
+      }
+      if (myNow600 != myTime600){
+        // loop per 10 minutes
+        myTime600 = myNow600;
+        testServer(true);
       }
     }
     snprintf(message[0], 21, "%02d.%02d.%04d %02d:%02d:%02d ", day(), month(), year(),hour(), minute(), second()) ;
