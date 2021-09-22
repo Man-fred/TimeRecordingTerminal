@@ -3,12 +3,12 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-00-09.";
+String mVersionNr = "V00-00-09.trt.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "2";
 
 //Sketch
-String mVersionVariante = "trt.";
+//String mVersionVariante = "trt.";
 
 char keypass[21];
 
@@ -744,10 +744,10 @@ void ota(){
   displayText(2, (char*)"Suche Update ...");
   WiFiClient wifiClient;
 #ifdef ESP32
-  t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
+  t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
 #else      
-  //t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
-  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionVariante + mVersionBoard).c_str());
+  //t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionBoard).c_str());
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-00-09.trt.d1_mini");
 #endif
   
   switch (ret) {
