@@ -3,7 +3,7 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-00-08.";
+String mVersionNr = "V00-00-09.";
 //EEPROM-Version
 char versionNeu[2] = "2";
 
@@ -592,7 +592,7 @@ void connectWifi() {
                     case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, (char*)"Gehen"); break;
                     case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, (char*)"Gehen Krank"); break;
                     case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, (char*)"Dienstgang"); break;
-                    case '0' : ota(); break;
+                    case '0' : if (keypadUnlocked) ota(); break;
                     //default  : snprintf(satzArt, 3, "FO"); displayText(3, (char*)""); break;
                     default  : 
                       if (!keypadUnlocked) {
@@ -600,6 +600,10 @@ void connectWifi() {
                           keypadPos = 0;
                         }
                         keypad[keypadPos] = keymap[j][i]; 
+                        if (keypadPos < 2){
+                          satzArt[keypadPos] = keymap[j][i];
+                          satzArt[keypadPos+1] = 0;
+                        }
                         keypadPos++;
                         keypad[keypadPos] = 0; 
                         
@@ -841,6 +845,8 @@ void loop() {
     //CardID resetten
     chipID = 0;
     snprintf(satzArt, 3, "FO");
+    keypadPos = 0;
+    keypad[0] = 0;
   }
   if (myTime != myNow) {
     // loop per second

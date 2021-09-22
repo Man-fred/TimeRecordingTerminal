@@ -12,7 +12,7 @@ boolean summertime(int year, byte month, byte day, byte hour, byte tzHours);
 
 
 // send an NTP request to the time server at the given address
-unsigned long sendNTPpacket(IPAddress& address);
+void sendNTPpacket(IPAddress& address);
 
 
 /**
