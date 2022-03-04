@@ -3,8 +3,7 @@
 #include "defines.h"
 
 //Update-Version
-#define mVersionNr "V00-01-00.trt.d1_mini"
-
+String mVersionNr = "V00-02-01.trt.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "2";
 
@@ -57,13 +56,15 @@ int z = 0;                   //Aktuelle EEPROM-Adresse zum lesen
 
 // Creat a set of new characters
 const uint8_t charBitmap[][8] = {
-   { 0b01010, 0b00000, 0b01110, 0b00001, 0b01111, 0b10001, 0b01111, 0b00000 },
-   { 0b01010, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01111, 0b00000 },
-   { 0b01010, 0b00000, 0b10001, 0b10001, 0b10001, 0b10011, 0b01101, 0b00000 },
-   { 0b10001, 0b00100, 0b01010, 0b10001, 0b11111, 0b10001, 0b10001, 0b00000 },
-   { 0b10001, 0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110, 0b00000 },
-   { 0b10001, 0b00000, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110, 0b00000 },
-   { 0b01100, 0b10010, 0b10010, 0b11110, 0b10001, 0b10001, 0b11110, 0b10000 }
+   { 0b01010, 0b00000, 0b01110, 0b00001, 0b01111, 0b10001, 0b01111, 0b00000 }, // ä
+   { 0b01010, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01111, 0b00000 }, // ö
+   { 0b01010, 0b00000, 0b10001, 0b10001, 0b10001, 0b10011, 0b01101, 0b00000 }, // ü
+   { 0b10001, 0b00100, 0b01010, 0b10001, 0b11111, 0b10001, 0b10001, 0b00000 }, // Ä
+   { 0b10001, 0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110, 0b00000 }, // Ö
+   { 0b10001, 0b00000, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110, 0b00000 }, // Ü
+   { 0b01100, 0b10010, 0b10010, 0b11110, 0b10001, 0b10001, 0b11110, 0b10000 }, // ß
+   { 0b00100, 0b00100, 0b00100, 0b00100, 0b10101, 0b01110, 0b00100, 0b00000 }, // ↓
+   { 0b00100, 0b00100, 0b01110, 0b10101, 0b00100, 0b00100, 0b00100, 0b00000 }  // ↑
 };
 
 #endif
@@ -95,13 +96,14 @@ unsigned long WifiConnected = 0;
 int NTPCounter = 0; // connect 1 .. 30
 int NTPFails = 0;   // 
 unsigned long NTPNext = 0;   // paused
-unsigned long myTime = 0, myTime10 = 0, myTime600 = 0;
+unsigned long myTime = 0, myTime10 = 0, myTime600 = 0, myTimeId = 0;
 unsigned long myTimeFromTics = 0;
 
 //Display
 #define LEER "                    "
 char message[4][21] = {LEER, LEER, LEER, "                xxxx"};
 const byte message3 = 14;
+const byte messageUPL = 15;
 const byte messageONL = 16;
 const byte messageRTC = 17;
 const byte messageNTP = 18;
@@ -135,6 +137,22 @@ char version[2] = "0";
 String Temp = "";
 
 // Display
+
+void displayByte(char myChar){
+  switch (myChar) {
+    case 132 /*ä*/ : lcd.write(byte(0)); break;
+    case 148 /*ö*/ : lcd.write(byte(1)); break;
+    case 129 /*ü*/ : lcd.write(byte(2)); break;
+    case 142 /*Ä*/ : lcd.write(byte(3)); break;
+    case 153 /*Ö*/ : lcd.write(byte(4)); break;
+    case 154 /*Ü*/ : lcd.write(byte(5)); break;
+    case 225 /*ß*/ : lcd.write(byte(6)); break;
+    case  25 /*↓*/ : lcd.write(byte(7)); break;
+    case  24 /*↑*/ : lcd.write(byte(8)); break;
+    default  : lcd.print(myChar); break;
+  }
+}
+
 void displayZeile(int row, char* rowMessage){
   #ifdef IIC_DISPLAY
   bool ende = false;
@@ -148,16 +166,7 @@ void displayZeile(int row, char* rowMessage){
     if (ende)
       lcd.print(' ');
     else
-      switch (rowMessage[j]) {
-        case 132 /*ä*/ : lcd.write(byte(0)); break;
-        case 148 /*ö*/ : lcd.write(byte(1)); break;
-        case 129 /*ü*/ : lcd.write(byte(2)); break;
-        case 142 /*Ä*/ : lcd.write(byte(3)); break;
-        case 153 /*Ö*/ : lcd.write(byte(4)); break;
-        case 154 /*Ü*/ : lcd.write(byte(5)); break;
-        case 225 /*ß*/ : lcd.write(byte(6)); break;
-        default  : lcd.print(rowMessage[j]); break;
-      }
+      displayByte(rowMessage[j]);
     //Serial.print((int)message[row][j]);Serial.println(message[row][j]);
   }
   #endif
@@ -211,7 +220,7 @@ void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0
 void displayChar(int pos, int row, char myChar){
   #ifdef IIC_DISPLAY
     lcd.setCursor ( pos, row );        // go to the next line
-    lcd.print (myChar);
+    displayByte(myChar);
   #endif
 }
 
@@ -269,6 +278,7 @@ bool sendToServer(bool onlyOffline = false){
       if (fin) {
         fin.seek((offlineSend-1)*51, SeekSet);
         if(fin.available()){
+          displayChar(messageUPL, 3, '>');
           // '\n' is not included in the returned string, but the last char '\r' is
           String line=fin.readStringUntil('\n');
           Serial.print("SE-Line: ");
@@ -276,6 +286,7 @@ bool sendToServer(bool onlyOffline = false){
           client.println(line); 
           delay(100); 
           /*Echo vom Server lesen und verwerfen, da alte Daten*/ 
+          displayChar(messageUPL, 3, '<');
           line = client.readStringUntil('\n'); 
           if (line.length() == 0){
             myConnected = false;
@@ -311,12 +322,14 @@ bool sendToServer(bool onlyOffline = false){
     }
     
     if (!onlyOffline){
+      displayChar(messageUPL, 3, '>');
       Serial.print("Nachricht an Server senden: "); 
       Serial.println(data); 
       client.println(data); 
       delay(100); 
      
       /*Echo vom Server lesen und ausgeben*/ 
+      displayChar(messageUPL, 3, '<');
       String line = client.readStringUntil('\n'); 
       if (line.length() == 0){
         myConnected = false;
@@ -336,6 +349,7 @@ bool sendToServer(bool onlyOffline = false){
           displayText(3, (char *)"");
         }
       }
+      displayChar(messageUPL, 3, '#');
     }
     ServerOk = closeServer();
   } else {
@@ -358,9 +372,12 @@ void sendAndReplay(long id) {
     snprintf(data, 80, "R_%2sJ2222%c__%2s_________%08ld%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
 
     //sendToServer();
+    displayChar(messageUPL, 3, '>');
     if (!sendToServer()) {
+      displayChar(messageUPL, 3, '#');
       displayChar(messageONL, 3, '-');
       offlineCount++;
+      data[0] = '[';
       //save to File and send later
       File f = LittleFS.open("/data/01", "a");
       if (f) {
@@ -373,6 +390,7 @@ void sendAndReplay(long id) {
         Serial.println(data);
       } else {
         Serial.println("file 01 open failed");
+        displayText(1, (char*)"Fehler Offline");
       }
       /////////////////////////////////////////dataWrite();
       //Serial.print("Offline:");
@@ -382,6 +400,7 @@ void sendAndReplay(long id) {
       snprintf(data, message3, "Offline: %d          ", (offlineCount - offlineSend) ) ;
       displayText(3, data);
     }
+  displayChar(messageUPL, 3, '#');
 }
 
 # ifdef IICTEST
@@ -690,17 +709,16 @@ void configWrite() {
 }
 
 void configPrint() {
-  Serial.println(version);
-  Serial.println(ssid);
-  Serial.println(passwort);
-  Serial.println(UpdateServer);
-  Serial.println(timeserver);
-  Serial.println(device_name);
-  Serial.println(terminalId);
-  Serial.println(serverHost);
-  Serial.println(serverPort);
-  Serial.println(keypass);
-  //LeseEepromCheck();
+  Serial.print("Version "); Serial.println(version);
+  Serial.print("a "); Serial.println(ssid);
+  Serial.print("b "); Serial.println(passwort);
+  Serial.print("c "); Serial.println(UpdateServer);
+  Serial.print("d "); Serial.println(timeserver);
+  Serial.print("e "); Serial.println(device_name);
+  Serial.print("f "); Serial.println(terminalId);
+  Serial.print("g "); Serial.println(serverHost);
+  Serial.print("h "); Serial.println(serverPort);
+  Serial.print("i "); Serial.println(keypass);
 }
 
 void Serial_Task() {
@@ -748,7 +766,7 @@ void ota(){
   t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
 #else      
   //t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionBoard).c_str());
-  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-01-00.trt.d1_mini");
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-00-09.trt.d1_mini");
 #endif
   
   switch (ret) {
@@ -889,8 +907,9 @@ void loop() {
       chipID=((chipID+mfrc522.uid.uidByte[i])*10);
     }
 
-    //... und anschließend ausgegeben wenn nicht doppelt
-    if (chipID > 0 and chipID != chipIDPrev) {
+    //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
+    if (chipID > 0 and (chipID != chipIDPrev || myNow > myTimeId + 4) ) {
+      myTimeId = myNow;
       chipIDPrev = chipID;
       sendAndReplay(chipID);
     }
