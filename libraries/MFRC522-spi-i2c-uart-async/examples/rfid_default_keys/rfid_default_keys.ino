@@ -23,8 +23,6 @@
  * SPI MISO    MISO         12 / ICSP-1   50        D12        ICSP-1           14
  * SPI SCK     SCK          13 / ICSP-3   52        D13        ICSP-3           15
  *
- * More pin layouts for other boards can be found here: https://github.com/miguelbalboa/rfid#pin-layout
- *
  */
 
 #include <SPI.h>
@@ -83,7 +81,12 @@ bool try_key(MFRC522::MIFARE_Key *key)
     byte buffer[18];
     byte block = 0;
     MFRC522::StatusCode status;
-
+    
+    // http://arduino.stackexchange.com/a/14316
+    if ( ! mfrc522.PICC_IsNewCardPresent())
+        return false;
+    if ( ! mfrc522.PICC_ReadCardSerial())
+        return false;
     // Serial.println(F("Authenticating using key A..."));
     status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, key, &(mfrc522.uid));
     if (status != MFRC522::STATUS_OK) {
@@ -121,7 +124,7 @@ bool try_key(MFRC522::MIFARE_Key *key)
  * Main loop.
  */
 void loop() {
-    // Reset the loop if no new card present on the sensor/reader. This saves the entire process when idle.
+    // Look for new cards
     if ( ! mfrc522.PICC_IsNewCardPresent())
         return;
 
@@ -150,11 +153,5 @@ void loop() {
             // no need to try other keys for this PICC
             break;
         }
-        
-        // http://arduino.stackexchange.com/a/14316
-        if ( ! mfrc522.PICC_IsNewCardPresent())
-            break;
-        if ( ! mfrc522.PICC_ReadCardSerial())
-            break;
     }
 }

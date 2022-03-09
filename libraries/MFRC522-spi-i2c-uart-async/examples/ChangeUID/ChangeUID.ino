@@ -5,6 +5,7 @@
  * This is a MFRC522 library example; for further details and other examples see: https://github.com/miguelbalboa/rfid
  * 
  * This sample shows how to set the UID on a UID changeable MIFARE card.
+ * NOTE: for more informations read the README.rst
  * 
  * @author Tom Clement
  * @license Released into the public domain.
@@ -20,8 +21,6 @@
  * SPI MOSI    MOSI         11 / ICSP-4   51        D11        ICSP-4           16
  * SPI MISO    MISO         12 / ICSP-1   50        D12        ICSP-1           14
  * SPI SCK     SCK          13 / ICSP-3   52        D13        ICSP-3           15
- *
- * More pin layouts for other boards can be found here: https://github.com/miguelbalboa/rfid#pin-layout
  */
 
 #include <SPI.h>
@@ -62,7 +61,7 @@ void setup() {
 // But of course this is a more proper approach
 void loop() {
   
-  // Reset the loop if no new card present on the sensor/reader. This saves the entire process when idle. And if present, select one.
+  // Look for new cards, and select one if present
   if ( ! mfrc522.PICC_IsNewCardPresent() || ! mfrc522.PICC_ReadCardSerial() ) {
     delay(50);
     return;

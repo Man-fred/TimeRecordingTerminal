@@ -6,6 +6,7 @@
  * 
  * This example test the firmware of your MFRC522 reader module, only known version can be checked. If the test passed
  * it do not mean that your module is faultless! Some modules have bad or broken antennas or the PICC is broken.
+ * NOTE: for more informations read the README.rst
  * 
  * @author Rotzbua
  * @license Released into the public domain.
@@ -21,8 +22,6 @@
  * SPI MOSI    MOSI         11 / ICSP-4   51        D11        ICSP-4           16
  * SPI MISO    MISO         12 / ICSP-1   50        D12        ICSP-1           14
  * SPI SCK     SCK          13 / ICSP-3   52        D13        ICSP-3           15
- *
- * More pin layouts for other boards can be found here: https://github.com/miguelbalboa/rfid#pin-layout
  */
 
 #include <SPI.h>

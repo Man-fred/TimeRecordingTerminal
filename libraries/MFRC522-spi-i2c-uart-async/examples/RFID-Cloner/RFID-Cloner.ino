@@ -1,6 +1,6 @@
 /*
  * Copy the RFID card data into variables and then 
- * scan the second empty card to copy all the data
+ * scan the second empty card to copy all the date
  * ----------------------------------------------------------------------------
  * Example sketch/program which will try the most used default keys listed in 
  * https://code.google.com/p/mfcuk/wiki/MifareClassicDefaultKeys to dump the
@@ -17,8 +17,6 @@
  * SPI MOSI    MOSI         11 / ICSP-4   51        D11        ICSP-4           16
  * SPI MISO    MISO         12 / ICSP-1   50        D12        ICSP-1           14
  * SPI SCK     SCK          13 / ICSP-3   52        D13        ICSP-3           15
- *
- * More pin layouts for other boards can be found here: https://github.com/miguelbalboa/rfid#pin-layout
  *
  */
 
