@@ -247,22 +247,26 @@ bool closeServer(){
   return true;
 }
 
+void testServerCommand(){
+  snprintf(data, 80, "R_%2sJ2222C__CC", terminalId, satzKennung);
+  client.println(data); 
+  delay(100); 
+  /*Echo vom Server lesen und eventuellen Befehl ausführen*/ 
+  String line = client.readStringUntil('\n'); 
+  if (strcmp(line.c_str(),"update") == 0) {
+    ota();
+  } else {
+    Serial.print("command?");
+    Serial.print(line);
+    Serial.println("?command");
+  }
+}
+
 void testServer(bool command = false){
-  if (!ServerOk){
+  if (!ServerOk || command){
     if (connectServer()){
       if (command){
-        snprintf(data, 80, "R_%2sJ2222%c__CC", terminalId, satzKennung, satzArt);
-        client.println(data); 
-        delay(100); 
-        /*Echo vom Server lesen und eventuellen Befehl ausführen*/ 
-        String line = client.readStringUntil('\n'); 
-        if (strcmp(line.c_str(),"update") == 0) {
-          ota();
-        } else {
-          Serial.print("command?");
-          Serial.print(line);
-          Serial.println("?command");
-        }
+        testServerCommand();
       }
       ServerOk = closeServer();
     }
@@ -889,11 +893,6 @@ void loop() {
         if (offlineCount > offlineSend){
           sendToServer(true);
         }
-      }
-      if (myNow600 != myTime600){
-        // loop per 10 minutes
-        myTime600 = myNow600;
-        testServer(true);
       }
     }
     snprintf(message[0], 21, "%02d.%02d.%04d %02d:%02d:%02d ", day(), month(), year(),hour(), minute(), second()) ;
