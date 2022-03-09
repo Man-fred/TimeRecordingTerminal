@@ -369,7 +369,8 @@ void sendAndReplay(long id) {
     //snprintf(data, 80, "%s %s %10d 4d%2d%2d%2d%2d%2d       ", message[3][messageWIFI], terminal, id, year(), month(), day(),hour(), minute(), second()) ;
     //R_11J22223__44_________5555555566666666777777____
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second()) ;
-    snprintf(data, 80, "R_%2sJ2222%c__%2s_________%08ld%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
+    //snprintf(data, 80, "R_%2sJ2222%c__%2s_________%08ld%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
+    snprintf(data, 80, "R_%2sJ2222%c__%2s_______%010ld%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
 
     //sendToServer();
     displayChar(messageUPL, 3, '>');
@@ -900,23 +901,30 @@ void loop() {
   }
   // Sobald ein Chip aufgelegt wird startet diese Abfrage
   if (mfrc522.PICC_IsNewCardPresent()){
-    mfrc522.PICC_ReadCardSerial();
+    if (mfrc522.PICC_ReadCardSerial()){
 
-    // Hier wird die ID des Chips in die Variable chipID geladen
-    for (byte i = 0; i < mfrc522.uid.size; i++){
-      chipID=((chipID+mfrc522.uid.uidByte[i])*10);
-    }
-
-    //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
-    if (chipID > 0 and (chipID != chipIDPrev || myNow > myTimeId + 4) ) {
-      myTimeId = myNow;
-      chipIDPrev = chipID;
-      sendAndReplay(chipID);
-    }
-    
-    // Danach 1 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
-    delay(1000);
+      // Hier wird die ID des Chips in die Variable chipID geladen
+      chipID = 0;
+      for (byte i = 0; i < mfrc522.uid.size; i++){
+        byte myByte = mfrc522.uid.uidByte[i];
+        chipID=((chipID+myByte)*10);
+        if (myByte < 16)
+          Serial.print("0");
+        Serial.print(myByte,HEX);
+      }
+      Serial.println(".chipID");
+      //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
+      if (chipID > 0 and (chipID != chipIDPrev || myNow > myTimeId + 4) ) {
+        myTimeId = myNow;
+        chipIDPrev = chipID;
+        sendAndReplay(chipID);
+      }
       
+      // Danach 1 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
+      delay(500);
+    } else {
+      Serial.println("PICC_ReadCardSerial Status not ok");
+    }
   }
   keypadloop();
   Serial_Task();
