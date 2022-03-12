@@ -1801,5 +1801,7 @@ bool MFRC522::PICC_IsNewCardPresent() {
  */
 bool MFRC522::PICC_ReadCardSerial() {
 	MFRC522::StatusCode result = PICC_Select(&uid);
+	Serial.print("PICC-STATUS:");
+	Serial.println(result);
 	return (result == STATUS_OK);
 } // End 

@@ -3,7 +3,7 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-02-01.trt.d1_mini";
+String mVersionNr = "V00-02-03.trt.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "2";
 
@@ -125,8 +125,10 @@ int offlineCount = 0;
 int offlineSend = 0;
 
 //RFC
-long chipID = 1;
-long chipIDPrev = 0;
+unsigned long chipID = 1;
+unsigned long chipIDhex = 0;
+int chipStatusNotOk = 0;
+unsigned long chipIDPrev = 0;
 // MFRC522-Instanz erstellen
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
@@ -362,7 +364,7 @@ bool sendToServer(bool onlyOffline = false){
   return ServerOk;
 }
 
-void sendAndReplay(long id) {
+void sendAndReplay(unsigned long id) {
     /*
   1 dppz.terminal.id    99
   2 dppz.satz.nr        0000
@@ -373,8 +375,8 @@ void sendAndReplay(long id) {
     //snprintf(data, 80, "%s %s %10d 4d%2d%2d%2d%2d%2d       ", message[3][messageWIFI], terminal, id, year(), month(), day(),hour(), minute(), second()) ;
     //R_11J22223__44_________5555555566666666777777____
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second()) ;
-    //snprintf(data, 80, "R_%2sJ2222%c__%2s_________%08ld%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
-    snprintf(data, 80, "R_%2sJ2222%c__%2s_______%010ld%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
+    //2020-03-10 snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
+    snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____%012lu", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second(), chipIDhex);
 
     //sendToServer();
     displayChar(messageUPL, 3, '>');
@@ -632,9 +634,9 @@ void connectWifi() {
                         keypadPos++;
                         keypad[keypadPos] = 0; 
                         
-                        Serial.print("keypad  ");
-                        Serial.print(keypadPos);
-                        Serial.println(keymap[j][i]);
+                        //Serial.print("keypad  ");
+                        //Serial.print(keypadPos);
+                        //Serial.println(keymap[j][i]);
   
                         if (strcmp(keypad, keypass) != 0) {
                           displayText(3, keypad);  
@@ -666,7 +668,7 @@ void connectWifi() {
 #endif
 
 void configRead() {
-  Serial.println("configRead");
+  //Serial.println("configRead");
   z = 0;
   EEPROM.begin(512);
   LeseEeprom(version, 2);                 //  0
@@ -771,7 +773,7 @@ void ota(){
   t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
 #else      
   //t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionBoard).c_str());
-  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-00-09.trt.d1_mini");
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-02-03.trt.d1_mini");
 #endif
   
   switch (ret) {
@@ -900,27 +902,34 @@ void loop() {
   }
   // Sobald ein Chip aufgelegt wird startet diese Abfrage
   if (mfrc522.PICC_IsNewCardPresent()){
+    delay(200);
     if (mfrc522.PICC_ReadCardSerial()){
-
       // Hier wird die ID des Chips in die Variable chipID geladen
       chipID = 0;
+      chipIDhex = 0;
+      //Serial.print("chipID 0x");
       for (byte i = 0; i < mfrc522.uid.size; i++){
         byte myByte = mfrc522.uid.uidByte[i];
-        chipID=((chipID+myByte)*10);
-        if (myByte < 16)
-          Serial.print("0");
-        Serial.print(myByte,HEX);
+        //if (myByte < 16)
+        //  Serial.print("0");
+        //Serial.print(myByte,HEX);
+        //BUG!!
+        chipID=((chipID + myByte)*10);
+        chipIDhex=chipIDhex*256 + myByte;
       }
-      Serial.println(".chipID");
+      //Serial.print("/");
+      //Serial.print(chipIDhex);
+      //Serial.print("/bisher: ");
+      //Serial.println(chipID);
+  
       //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
       if (chipID > 0 and (chipID != chipIDPrev || myNow > myTimeId + 4) ) {
         myTimeId = myNow;
         chipIDPrev = chipID;
         sendAndReplay(chipID);
       }
-      
-      // Danach 1 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
-      delay(500);
+      // Danach 0,3 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
+      delay(300);
     } else {
       Serial.println("PICC_ReadCardSerial Status not ok");
     }
