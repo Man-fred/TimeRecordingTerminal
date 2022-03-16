@@ -3,7 +3,7 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-02-03.trt.d1_mini";
+String mVersionNr = "V00-02-04.trt.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "2";
 
@@ -202,6 +202,7 @@ void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0
       displayZeile(i+1, message[i+1]);
     }
   }
+  /*
   if (row > 0 && row < 4){
     for (int i=0; i<4;i++){
       if (row == i){
@@ -217,6 +218,7 @@ void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0
     }
     Serial.println("");
   }
+  */
 }
 
 void displayChar(int pos, int row, char myChar){
@@ -233,9 +235,9 @@ bool connectServer(){
   if (!client.connect(serverHost, serverPort)) { 
     return false; 
   } 
-  Serial.println(); 
-  Serial.print("Verbunden mit "); 
-  Serial.println(serverHost); 
+  //Serial.println(); 
+  //Serial.print("Verbunden mit "); 
+  //Serial.println(serverHost); 
   displayChar(messageONL, 3, 'O');
   return true;
 }
@@ -255,7 +257,7 @@ void testServerCommand(){
   delay(100); 
   /*Echo vom Server lesen und eventuellen Befehl ausführen*/ 
   String line = client.readStringUntil('\n'); 
-  if (strcmp(line.c_str(),"update") == 0) {
+  if (strncmp(line.c_str(),"update", 6) == 0) {
     ota();
   } else {
     Serial.print("command?");
@@ -287,9 +289,9 @@ bool sendToServer(bool onlyOffline = false){
           displayChar(messageUPL, 3, '>');
           // '\n' is not included in the returned string, but the last char '\r' is
           String line=fin.readStringUntil('\n');
-          Serial.print("SE-Line: ");
-          Serial.println(line);
-          client.println(line); 
+          //Serial.print("SE-Line: ");
+          //Serial.println(line);
+          //client.println(line); 
           delay(100); 
           /*Echo vom Server lesen und verwerfen, da alte Daten*/ 
           displayChar(messageUPL, 3, '<');
@@ -307,16 +309,16 @@ bool sendToServer(bool onlyOffline = false){
               fout.write(offlineSend);
               int offlineData = fout.size();
               fout.close();
-              Serial.print("SE-Size: ");
-              Serial.println(offlineData);
+              //Serial.print("SE-Size: ");
+              //Serial.println(offlineData);
             } else {
-              Serial.println("file offline open failed");
+              //Serial.println("file offline open failed");
             }
           }
         }
         fin.close();
       } else {
-        Serial.println("file offline open failed");
+        //Serial.println("file offline open failed");
       }
     }
     if (offlineCount == offlineSend && offlineCount > 0) {
@@ -329,7 +331,7 @@ bool sendToServer(bool onlyOffline = false){
     
     if (!onlyOffline){
       displayChar(messageUPL, 3, '>');
-      Serial.print("Nachricht an Server senden: "); 
+      //Serial.print("Nachricht an Server senden: "); 
       Serial.println(data); 
       client.println(data); 
       delay(100); 
@@ -376,7 +378,7 @@ void sendAndReplay(unsigned long id) {
     //R_11J22223__44_________5555555566666666777777____
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second()) ;
     //2020-03-10 snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
-    snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____%012lu", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second(), chipIDhex);
+    snprintf(data, 80, "R_%2sJ2222%c__%2s%017lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second(), chipIDhex);
 
     //sendToServer();
     displayChar(messageUPL, 3, '>');
@@ -391,12 +393,12 @@ void sendAndReplay(unsigned long id) {
         f.println(data);
         int offlineData = f.size();
         f.close();
-        Serial.print("01-Size: ");
-        Serial.print(offlineData);
-        Serial.print(": ");
-        Serial.println(data);
+        //Serial.print("01-Size: ");
+        //Serial.print(offlineData);
+        //Serial.print(": ");
+        //Serial.println(data);
       } else {
-        Serial.println("file 01 open failed");
+        //Serial.println("file 01 open failed");
         displayText(1, (char*)"Fehler Offline");
       }
       /////////////////////////////////////////dataWrite();
@@ -773,7 +775,7 @@ void ota(){
   t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
 #else      
   //t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionBoard).c_str());
-  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-02-03.trt.d1_mini");
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-02-04.trt.d1_mini");
 #endif
   
   switch (ret) {
@@ -805,6 +807,10 @@ void setup() {
   SPI.begin();
   // MFRC522 initialisieren
   mfrc522.PCD_Init();
+  // Details vom MFRC522 RFID READER / WRITER ausgeben
+  //Kurze Pause nach dem Initialisieren   
+  //hierdurch Absturz? delay(10);
+  //hierdurch Absturz? mfrc522.PCD_DumpVersionToSerial();  
 
 # ifdef IICTEST
     Wire.begin(PIN_SDA, PIN_SCK);
@@ -848,11 +854,7 @@ void setup() {
   
   FSInfo fs_info;
   LittleFS.info(fs_info);
-  Serial.println("totalBytes " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
-  // Details vom MFRC522 RFID READER / WRITER ausgeben
-  //Kurze Pause nach dem Initialisieren   
-  //delay(10);
-  //mfrc522.PCD_DumpVersionToSerial();  
+  //Serial.println("totalBytes " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
   
   displayChar(messageNTP, 3, '-');
   displayChar(messageONL, 3, '-');
@@ -931,7 +933,15 @@ void loop() {
       // Danach 0,3 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
       delay(300);
     } else {
-      Serial.println("PICC_ReadCardSerial Status not ok");
+      //Lesefehler
+      if (chipStatusNotOk++ == 2)
+      {
+        //Serial.println("Lesefehler!");
+        displayText(2, (char*)"Lesefehler!", 2);
+        // Anzeige beim nächsten Loop zurücksetzen
+        chipID = 1;
+      }
+      // z.Zt. in Library: Serial.println("PICC_ReadCardSerial Status not ok");
     }
   }
   keypadloop();
