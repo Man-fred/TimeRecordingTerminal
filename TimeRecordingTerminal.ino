@@ -126,7 +126,7 @@ int offlineSend = 0;
 
 //RFC
 unsigned long chipID = 1;
-unsigned long chipIDhex = 0;
+unsigned long chipIDhex = 1;
 int chipStatusNotOk = 0;
 unsigned long chipIDPrev = 0;
 // MFRC522-Instanz erstellen
@@ -378,7 +378,7 @@ void sendAndReplay(unsigned long id) {
     //R_11J22223__44_________5555555566666666777777____
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second()) ;
     //2020-03-10 snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
-    snprintf(data, 80, "R_%2sJ2222%c__%2s%017lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second(), chipIDhex);
+    snprintf(data, 80, "R_%2sJ2222%c__%2s%017lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second(), chipID);
 
     //sendToServer();
     displayChar(messageUPL, 3, '>');
@@ -564,6 +564,7 @@ void connectWifi() {
       WifiConnected = now();
       // now show hint
       chipID = 1;
+      chipIDhex = 1;
     }
   }
 }
@@ -866,12 +867,13 @@ void loop() {
   unsigned long myNow10 = 0;
   unsigned long myNow600 = 0;
 
-  if (chipID > 0) {
+  if (chipIDhex > 0) {
     displayText(1, (char*)"Karte bitte ...") ;
     displayText(2, (char*)"");
     displayText(3, (char*)"");
     //CardID resetten
     chipID = 0;
+    chipIDhex = 0;
     snprintf(satzArt, 3, "FO");
     keypadPos = 0;
     keypad[0] = 0;
@@ -925,10 +927,10 @@ void loop() {
       //Serial.println(chipID);
   
       //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
-      if (chipID > 0 and (chipID != chipIDPrev || myNow > myTimeId + 4) ) {
+      if (chipIDhex > 0 and (chipIDhex != chipIDPrev || myNow > myTimeId + 4) ) {
         myTimeId = myNow;
-        chipIDPrev = chipID;
-        sendAndReplay(chipID);
+        chipIDPrev = chipIDhex;
+        sendAndReplay(chipIDhex);
       }
       // Danach 0,3 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
       delay(300);
@@ -940,6 +942,7 @@ void loop() {
         displayText(2, (char*)"Lesefehler!", 2);
         // Anzeige beim nächsten Loop zurücksetzen
         chipID = 1;
+        chipIDhex = 1;
       }
       // z.Zt. in Library: Serial.println("PICC_ReadCardSerial Status not ok");
     }
