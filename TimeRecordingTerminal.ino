@@ -51,6 +51,9 @@ int z = 0;                   //Aktuelle EEPROM-Adresse zum lesen
 #   include <LiquidCrystal_I2C.h>
 //#   define BACKLIGHT_PIN     13
     bool myBacklight=true;
+    short myBacklightOn=0;
+    #define BACKLIGHT_KEY 6     // must be greater as BACKLIGHT_SECONDS
+    #define BACKLIGHT_SECONDS 5
     LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // Set the LCD I2C address
 #endif
 
@@ -581,6 +584,27 @@ void connectWifi() {
     "789C",
     "*0#D"
   };
+
+  void setBacklight(short set = 0) {
+    boolean toggle = false;
+    boolean isOn = (myBacklight || myBacklightOn > 0);
+    if (set == BACKLIGHT_KEY){ // toggle with "*"
+      toggle = true;
+      myBacklight = !isOn;
+      myBacklightOn = 0;
+    } else if (set <= 0){ // toggle if timer out or nothing to do
+      if (myBacklightOn > 0) {
+        toggle = isOn && !myBacklight;
+        myBacklightOn = 0;
+      }
+    } else { // in timer     
+      toggle = !isOn;
+      myBacklightOn = set;
+    }
+    if (toggle){
+      lcd.setBacklight(!isOn); 
+    }
+  }
   
   void keypadloop(){
     uint8_t i,j = 0;
@@ -607,53 +631,52 @@ void connectWifi() {
                 keymapX = test & test2;
                 if (keymapX){
                   //Serial.print("keypad  ");Serial.println(keymap[j][i]);
-                  switch (keymap[j][i]){
-                    case '*' : 
-                      myBacklight = !myBacklight;
-                      lcd.setBacklight(myBacklight); 
-                      break;
-                    case '#' : 
-                      keypadPos = 0;
-                      keypad[0] = 0;
-                      displayText(3, (char *)"#"); 
-                      keypadUnlocked = false;
-                      break;
-                    case 'A' : snprintf(satzArt, 3, "KO"); displayText(3, (char*)"Kommen"); break;
-                    case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, (char*)"Gehen"); break;
-                    case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, (char*)"Gehen Krank"); break;
-                    case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, (char*)"Dienstgang"); break;
-                    case '0' : if (keypadUnlocked) ota(); break;
-                    //default  : snprintf(satzArt, 3, "FO"); displayText(3, (char*)""); break;
-                    default  : 
-                      if (!keypadUnlocked) {
-                        if (keypadPos == 21){
-                          keypadPos = 0;
-                        }
-                        keypad[keypadPos] = keymap[j][i]; 
-                        if (keypadPos < 2){
-                          satzArt[keypadPos] = keymap[j][i];
-                          satzArt[keypadPos+1] = 0;
-                        }
-                        keypadPos++;
-                        keypad[keypadPos] = 0; 
-                        
-                        //Serial.print("keypad  ");
-                        //Serial.print(keypadPos);
-                        //Serial.println(keymap[j][i]);
-  
-                        if (strcmp(keypad, keypass) != 0) {
-                          displayText(3, keypad);  
+                  if (keymap[j][i] == '*'){
+                    setBacklight(BACKLIGHT_KEY);
+                  } else {
+                    setBacklight(BACKLIGHT_SECONDS);
+                    switch (keymap[j][i]){
+                      case '#' : 
+                        keypadPos = 0;
+                        keypad[0] = 0;
+                        displayText(3, (char *)"#"); 
+                        keypadUnlocked = false;
+                        break;
+                      case 'A' : snprintf(satzArt, 3, "KO"); displayText(3, (char*)"Kommen"); break;
+                      case 'B' : snprintf(satzArt, 3, "GE"); displayText(3, (char*)"Gehen"); break;
+                      case 'C' : snprintf(satzArt, 3, "KR"); displayText(3, (char*)"Gehen Krank"); break;
+                      case 'D' : snprintf(satzArt, 3, "DG"); displayText(3, (char*)"Dienstgang"); break;
+                      default  : {
+                        if (!keypadUnlocked) {
+                          if (keypadPos == 21){
+                            keypadPos = 0;
+                          }
+                          keypad[keypadPos] = keymap[j][i]; 
+                          if (keypadPos < 2){
+                            satzArt[keypadPos] = keymap[j][i];
+                            satzArt[keypadPos+1] = 0;
+                          }
+                          keypadPos++;
+                          keypad[keypadPos] = 0; 
+                          
+                          //Serial.print("keypad  ");
+                          //Serial.print(keypadPos);
+                          //Serial.println(keymap[j][i]);
+    
+                          if (strcmp(keypad, keypass) != 0) {
+                            displayText(3, keypad);  
+                          } else {
+                            keypadUnlocked = true;
+                            keypadPos = 0;
+                            keypad[0] = 0;
+                            displayText(3, (char*)"unlocked", 4);
+                          }
                         } else {
-                          keypadUnlocked = true;
-                          keypadPos = 0;
-                          keypad[0] = 0;
-                          displayText(3, (char*)"unlocked", 4);
+                          if (keymap[j][i] == '0') ota();
                         }
-                      } else {
-                        if (keymap[j][i] == '0') ota();
-                        
+                        break;
                       }
-                      break;
+                    }
                   }
                   //displayChar(0,3, keymap[j][i]);
                   chipIDPrev = 0;
@@ -734,6 +757,7 @@ void configPrint() {
 void Serial_Task() {
   while (Serial.available() > 0)  
   { // Eingabe im Seriellen Monitor lesen
+    setBacklight(BACKLIGHT_SECONDS);
     char Zeichen = Serial.read();    
     byte pos = 0;
     int ziffer = 0;
@@ -903,11 +927,13 @@ void loop() {
     }
     snprintf(message[0], 21, "%02d.%02d.%04d %02d:%02d:%02d ", day(), month(), year(),hour(), minute(), second()) ;
     displayText();
+    setBacklight(BACKLIGHT_SECONDS);
   }
   // Sobald ein Chip aufgelegt wird startet diese Abfrage
   if (mfrc522.PICC_IsNewCardPresent()){
     delay(200);
     if (mfrc522.PICC_ReadCardSerial()){
+      setBacklight(BACKLIGHT_SECONDS);
       // Hier wird die ID des Chips in die Variable chipID geladen
       chipID = 0;
       chipIDhex = 0;
