@@ -1218,7 +1218,7 @@ const __FlashStringHelper *MFRC522::PICC_GetTypeName(PICC_Type piccType	///< One
  * Dumps debug info about the connected PCD to Serial.
  * Shows all known firmware versions
  */
-void MFRC522::PCD_DumpVersionToSerial() {
+byte MFRC522::PCD_DumpVersionToSerial() {
 	// Get the MFRC522 firmware version
 	byte v = _dev->PCD_ReadRegister(VersionReg);
 	Serial.print(F("Firmware Version: 0x"));
@@ -1233,8 +1233,11 @@ void MFRC522::PCD_DumpVersionToSerial() {
 		default:   Serial.println(F(" = (unknown)"));
 	}
 	// When 0x00 or 0xFF is returned, communication probably failed
-	if ((v == 0x00) || (v == 0xFF))
+	if ((v == 0x00) || (v == 0xFF)) {
 		Serial.println(F("WARNING: Communication failure, is the MFRC522 properly connected?"));
+		return 0;
+	} else
+		return v;
 } // End PCD_DumpVersionToSerial()
 
 /**
@@ -1801,7 +1804,5 @@ bool MFRC522::PICC_IsNewCardPresent() {
  */
 bool MFRC522::PICC_ReadCardSerial() {
 	MFRC522::StatusCode result = PICC_Select(&uid);
-	Serial.print("PICC-STATUS:");
-	Serial.println(result);
 	return (result == STATUS_OK);
 } // End 

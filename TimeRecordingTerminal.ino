@@ -15,12 +15,12 @@ char keypass[21];
 char ssid[32] = "\0";
 char passwort[64] = "\0";
 char serverHost[LOGINLAENGE] = ""; //IP des Servers 
-int  serverPort = 0; //Port des Servers (ServerSocket) 
-char terminalId[4] = "99";
-char satzKennung = 'X';
 
 #include <stdio.h>
 
+int  serverPort = 0; //Port des Servers (ServerSocket) 
+char terminalId[4] = "99";
+char satzKennung = 'X';
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
 #include <LittleFS.h>
@@ -33,28 +33,32 @@ char satzKennung = 'X';
 int z = 0;                   //Aktuelle EEPROM-Adresse zum lesen
 #include "Setup.h"
 
-#include <SPI.h>
-#include <MFRC522.h>
+#ifdef SPITEST
+  #include <SPI.h>
+  #ifdef SPI_RFID
+    #include <MFRC522.h>
+  #endif
+#endif
 
 #ifdef IICTEST
-# include <Wire.h>               //http://arduino.cc/en/Reference/Wire (included with Arduino IDE)
-# ifdef IIC_KEYPAD
-#   include <PCF8574.h>
-    PCF8574 pcf8574(0x20);
-    boolean pcf8574Active = true;
-# endif
-# ifdef IIC_RTC
-#   include "RTClib.h"             //https://github.com/adafruit/RTClib
+  # include <Wire.h>             
+  #ifdef IIC_KEYPAD
+    #include <PCF8574.h>
+    PCF8574 pcf8574(IO_I2C_ADDRESS); // default: 0x20
+  # endif
+  #ifdef IIC_RTC
+    #include "RTClib.h"             //https://github.com/adafruit/RTClib
     RTC_DS3231 RTC;
-# endif
-# ifdef IIC_DISPLAY
-#   include <LiquidCrystal_I2C.h>
-//#   define BACKLIGHT_PIN     13
-    bool myBacklight=true;
-    short myBacklightOn=0;
-    #define BACKLIGHT_KEY 6     // must be greater as BACKLIGHT_SECONDS
+  #endif
+  #ifdef IIC_DISPLAY
+    #include <LiquidCrystal_I2C.h>
+    //#define BACKLIGHT_PIN     13
+    //bool myBacklight=true;
     #define BACKLIGHT_SECONDS 5
-    LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // Set the LCD I2C address
+    #define BACKLIGHT_KEY (BACKLIGHT_SECONDS + 1)     // must be greater as BACKLIGHT_SECONDS
+    short myBacklightTimer=BACKLIGHT_KEY;
+    LiquidCrystal_I2C lcd(DISPLAY_I2C_ADDRESS, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // Set the LCD I2C address 0x27
+  #endif
 #endif
 
 // Creat a set of new characters
@@ -70,20 +74,22 @@ const uint8_t charBitmap[][8] = {
    { 0b00100, 0b00100, 0b01110, 0b10101, 0b00100, 0b00100, 0b00100, 0b00000 }  // ↑
 };
 
-#endif
 // esp8266 RFID-RC522
-#define SS_PIN          15         // SDA    D8
-                                   // CLK    D5
-                                   // MOSI   D7
-                                   // MISO   D6
-                                   // IRQ    D1 -> trennen ?
-                                   // GND
-#define RST_PIN         0          // RST    D3
-                                   // 3.3
+#ifdef SPITEST
+  #define SS_PIN          D8         // SDA    D8 (15)
+                                     // CLK    D5
+                                     // MOSI   D7
+                                     // MISO   D6
+                                     // IRQ    0 , war D1 -> D3 ?
+                                     // GND
+  #define RST_PIN         D3         // RST    war D3, Test mit UNUSED_PIN keine Funktion
+                                     // 3.3
+#endif
+
 // esp8266 I2C
 #ifdef IICTEST
-# define PIN_SDA D2                // SDA    D2
-# define PIN_SCK D4                // SCK    D4 (eigentlich D1)
+  #define PIN_SDA D2                // SDA    D2
+  #define PIN_SCK D1                // SCK    D1 war D4 
 #endif
 
 int satzNummer = 9999;
@@ -105,7 +111,8 @@ unsigned long myTimeFromTics = 0;
 //Display
 #define LEER "                    "
 char message[4][21] = {LEER, LEER, LEER, "                xxxx"};
-const byte message3 = 14;
+const byte message3   = 13;
+const byte messageBL  = 14;
 const byte messageUPL = 15;
 const byte messageONL = 16;
 const byte messageRTC = 17;
@@ -132,9 +139,11 @@ unsigned long chipID = 1;
 unsigned long chipIDhex = 1;
 int chipStatusNotOk = 0;
 unsigned long chipIDPrev = 0;
+boolean chipFirstLoop = true; // only for tests in loop()
 // MFRC522-Instanz erstellen
-MFRC522 mfrc522(SS_PIN, RST_PIN);
-
+#ifdef SPI_RFID
+  MFRC522 mfrc522(SS_PIN, RST_PIN);
+#endif
 char eingabe[30] = "";
 byte eingabePos = 0;
 char version[2] = "0";
@@ -142,8 +151,8 @@ char version[2] = "0";
 String Temp = "";
 
 // Display
-
 void displayByte(char myChar){
+#ifdef IIC_DISPLAY
   switch (myChar) {
     case 132 /*ä*/ : lcd.write(byte(0)); break;
     case 148 /*ö*/ : lcd.write(byte(1)); break;
@@ -156,6 +165,7 @@ void displayByte(char myChar){
     case  24 /*↑*/ : lcd.write(byte(8)); break;
     default  : lcd.print(myChar); break;
   }
+#endif
 }
 
 void displayZeile(int row, char* rowMessage){
@@ -235,6 +245,7 @@ bool connectServer(){
   if (!WifiConnected){
     return false;
   }
+  client.setTimeout(500);
   if (!client.connect(serverHost, serverPort)) { 
     return false; 
   } 
@@ -447,7 +458,9 @@ void testIIC()
     }
     else if (error == 4)
     {
-      Serial.print("Unknown error at address 0x");
+      Serial.print("Error ");
+      Serial.print(error);
+      Serial.print(" at address 0x");
       if (address < 16)
         Serial.print("0");
       Serial.println(address, HEX);
@@ -455,13 +468,23 @@ void testIIC()
   }
   if (nDevices == 0)
     Serial.println("No I2C devices found\n");
-  else
+  else {
+    #ifdef IIC_KEYPAD
+      if (IOok)  Serial.print("IO ok - ");
+    #endif
+    #ifdef IIC_RTC
+      if (RTCok) Serial.print("RTC ok - ");
+    #endif
+    #ifdef IIC_DISPLAY
+      if (DISPLAYok) Serial.print("DISPLAY ok - ");
+    #endif
     Serial.println("done\n");
+  }
 }
 #endif
 
 void getRTC(){
-# ifdef IIC_RTC
+  #ifdef IIC_RTC
     if (RTCok) {
       RTCTime = RTC.now().unixtime();
       nowTime = now();
@@ -474,12 +497,10 @@ void getRTC(){
     } else {
       displayChar(messageRTC, 3, '-');
     }
-# endif
+  #endif
 }
 
-
-void Zeit_Einstellen()
-{
+void Zeit_Einstellen(){
   if (NTPok && NTPNext < myTime) {
     NTPok      = false;
     NTPCounter = 0;
@@ -505,15 +526,21 @@ void Zeit_Einstellen()
           NTPNext = myTime + 6*60*60;
           displayChar(messageNTP, 3, 'T');
           setTime(NTPTime);
-          RTCTime = RTC.now().unixtime();
+          #ifdef IIC_RTC
+            RTCTime = RTC.now().unixtime();
+          #else
+            RTCTime = NTPTime;
+          #endif
           if(RTCTime > NTPTime ? RTCTime - NTPTime > 5 : NTPTime - RTCTime > 5) {
             Temp = PrintDate(RTCTime) + "   " + PrintTime(RTCTime) + "   falsche RTC-Zeit";
             Serial.println( Temp );
             //LogSchreiben(Temp);
             //Serial.println( Temp );
             RTCSync = NTPTime;
-            RTC.adjust(DateTime(year(NTPTime), month(NTPTime), day(NTPTime), hour(NTPTime), minute(NTPTime), second(NTPTime)));
-            RTCTime = RTC.now().unixtime();
+            #ifdef IIC_RTC
+              RTC.adjust(DateTime(year(NTPTime), month(NTPTime), day(NTPTime), hour(NTPTime), minute(NTPTime), second(NTPTime)));
+              RTCTime = RTC.now().unixtime();
+            #endif
             Temp = PrintDate(RTCTime) + "   " + PrintTime(RTCTime) + "   richtige RTC-Zeit";
             Serial.println( Temp );
           }
@@ -540,7 +567,7 @@ void connectWifi() {
     WifiConnected = 0;
     WifiCounter++;
     if (WifiCounter == 1){
-      //WiFi.sta.autoconnect(0);
+      WiFi.setAutoConnect(false);
       WiFi.disconnect();
       WiFi.mode(WIFI_STA);                                            // Disable AP mode
       WiFi.begin(ssid, passwort);
@@ -557,6 +584,7 @@ void connectWifi() {
     snprintf(data, message3+2, "%d  %d                  ", WifiCounter, WifiFails) ;
     displayText(3, data);
     displayChar(messageWIFI, 3, '-');
+    Serial.println(data);
   } else {
     // connected
     if (WifiConnected == 0){
@@ -571,6 +599,28 @@ void connectWifi() {
     }
   }
 }
+#ifdef IIC_DISPLAY
+  void setBacklight(short set = 0) {
+    boolean isOn = (myBacklightTimer > 0);
+    if (set == 0){ // loop per second, toggle if timer gets to 0
+      if (myBacklightTimer > 0 && myBacklightTimer <= BACKLIGHT_SECONDS){
+        myBacklightTimer--;
+      }
+    } else if (set == BACKLIGHT_KEY){ // toggle with "*"
+      if (myBacklightTimer > 0){
+        myBacklightTimer = 0;
+      } else {
+        myBacklightTimer = BACKLIGHT_KEY;
+      }
+    } else if (set > myBacklightTimer){
+      myBacklightTimer = set;
+    } 
+    boolean toggle = (isOn != (myBacklightTimer > 0));
+    if (toggle){
+      lcd.setBacklight(!isOn); 
+    }
+  }
+#endif
 #ifdef IIC_KEYPAD
   #define keymapRows 4
   #define keymapCols 4
@@ -585,33 +635,12 @@ void connectWifi() {
     "*0#D"
   };
 
-  void setBacklight(short set = 0) {
-    boolean toggle = false;
-    boolean isOn = (myBacklight || myBacklightOn > 0);
-    if (set == BACKLIGHT_KEY){ // toggle with "*"
-      toggle = true;
-      myBacklight = !isOn;
-      myBacklightOn = 0;
-    } else if (set <= 0){ // toggle if timer out or nothing to do
-      if (myBacklightOn > 0) {
-        toggle = isOn && !myBacklight;
-        myBacklightOn = 0;
-      }
-    } else { // in timer     
-      toggle = !isOn;
-      myBacklightOn = set;
-    }
-    if (toggle){
-      lcd.setBacklight(!isOn); 
-    }
-  }
-  
   void keypadloop(){
     uint8_t i,j = 0;
     uint8_t test = 0;
     uint8_t test2 = 0;
     uint8_t keymapX = 0;
-    if (pcf8574Active){
+    if (IOok){
       test = pcf8574.read8();
       if (test != 0xF0){
         //Serial.print("keypad ");Serial.println(test, BIN);
@@ -632,9 +661,13 @@ void connectWifi() {
                 if (keymapX){
                   //Serial.print("keypad  ");Serial.println(keymap[j][i]);
                   if (keymap[j][i] == '*'){
+# ifdef IIC_DISPLAY
                     setBacklight(BACKLIGHT_KEY);
+#endif
                   } else {
+# ifdef IIC_DISPLAY
                     setBacklight(BACKLIGHT_SECONDS);
+#endif
                     switch (keymap[j][i]){
                       case '#' : 
                         keypadPos = 0;
@@ -757,7 +790,9 @@ void configPrint() {
 void Serial_Task() {
   while (Serial.available() > 0)  
   { // Eingabe im Seriellen Monitor lesen
-    setBacklight(BACKLIGHT_SECONDS);
+    #ifdef IIC_DISPLAY
+      setBacklight(BACKLIGHT_SECONDS);
+    #endif
     char Zeichen = Serial.read();    
     byte pos = 0;
     int ziffer = 0;
@@ -785,6 +820,7 @@ void Serial_Task() {
         case 'r' : configRead(); break;
         case 'p' : configPrint(); break;
         case 'w' : configWrite(); break;
+        case 't' : testIIC(); break;
       }
       eingabePos = 0; 
     } else {
@@ -829,22 +865,23 @@ void setup() {
   configRead();
 
   // SPI-Bus initialisieren
-  SPI.begin();
-  // MFRC522 initialisieren
-  mfrc522.PCD_Init();
-  // Details vom MFRC522 RFID READER / WRITER ausgeben
-  //Kurze Pause nach dem Initialisieren   
-  //hierdurch Absturz? delay(10);
-  //hierdurch Absturz? mfrc522.PCD_DumpVersionToSerial();  
+  #ifdef SPITEST
+    SPI.begin();
+    #ifdef SPI_RFID
+      // MFRC522 initialisieren
+      mfrc522.PCD_Init();
+      // Details vom MFRC522 RFID READER / WRITER ausgeben
+      //Kurze Pause nach dem Initialisieren   
+      //hierdurch Absturz? 
+      delay(10);
+      //hierdurch Absturz? 
+      RFIDok = (mfrc522.PCD_DumpVersionToSerial() > 0);  
+    #endif
+  #endif
 
 # ifdef IICTEST
     Wire.begin(PIN_SDA, PIN_SCK);
     testIIC();
-    #ifdef IIC_KEYPAD
-      if (IOok) {
-        //mcp.begin(0);
-      }
-    #endif
     #ifdef IIC_DISPLAY
       if (DISPLAYok) {
         //oledSplash();
@@ -898,6 +935,7 @@ void loop() {
     //CardID resetten
     chipID = 0;
     chipIDhex = 0;
+    chipStatusNotOk = 0;
     snprintf(satzArt, 3, "FO");
     keypadPos = 0;
     keypad[0] = 0;
@@ -906,6 +944,8 @@ void loop() {
     // loop per second
     myTime = myNow;
     myTimeFromTics = millis() / 1000;
+    snprintf(message[0], 21, "%02d.%02d.%04d %02d:%02d:%02d ", day(), month(), year(),hour(), minute(), second()) ;
+    displayText();
     //WiFi check
     connectWifi();          // Try to connect WiFi aSync
     if (WifiConnected > 0 ){
@@ -915,64 +955,88 @@ void loop() {
       if (myNow10 != myTime10){
         // loop per 10 seconds
         myTime10 = myNow10;
-        testServer(myNow600 != myTime600);
+        if (offlineCount > offlineSend){
+          sendToServer(true);
+        } else {
+          testServer(myNow600 != myTime600);
+        }
         if (myNow600 != myTime600){
           // loop per 10 minutes
           myTime600 = myNow600;
         }
-        if (offlineCount > offlineSend){
-          sendToServer(true);
+      }
+    }
+    #ifdef IIC_DISPLAY
+      setBacklight();
+    #endif
+  }
+  #ifdef SPI_RFID
+    // Sobald ein Chip aufgelegt wird startet diese Abfrage
+    #ifdef IIC_DISPLAY
+      if (chipFirstLoop)
+        displayChar(messageBL, 3, 'A');
+    #endif
+    if (mfrc522.PICC_IsNewCardPresent()){
+      delay(200);
+      #ifdef IIC_DISPLAY
+        displayChar(messageBL, 3, 'B');
+      #endif
+      MFRC522::StatusCode result =mfrc522.PICC_Select(&mfrc522.uid);
+	    Serial.print("PICC-STATUS:");
+	    Serial.println(result);
+        #ifdef IIC_DISPLAY
+          setBacklight(BACKLIGHT_SECONDS);
+          displayChar(messageBL, 3, result);
+        #endif
+      if (result == MFRC522::STATUS_OK){
+        // Hier wird die ID des Chips in die Variable chipID geladen
+        chipID = 0;
+        chipIDhex = 0;
+        //Serial.print("chipID 0x");
+        for (byte i = 0; i < mfrc522.uid.size; i++){
+          byte myByte = mfrc522.uid.uidByte[i];
+          //if (myByte < 16)
+          //  Serial.print("0");
+          //Serial.print(myByte,HEX);
+          //BUG!!
+          chipID=((chipID + myByte)*10);
+          chipIDhex=chipIDhex*256 + myByte;
+        }
+        //Serial.print("/");
+        //Serial.print(chipIDhex);
+        //Serial.print("/bisher: ");
+        //Serial.println(chipID);
+    
+        //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
+        if (chipIDhex > 0 and (chipIDhex != chipIDPrev || myNow > myTimeId + 4) ) {
+          #ifdef IIC_DISPLAY
+            displayChar(messageBL, 3, 'C');
+          #endif
+          myTimeId = myNow;
+          chipIDPrev = chipIDhex;
+          sendAndReplay(chipIDhex);
+        }
+        // Danach 0,3 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
+        delay(300);
+      } else {
+        //Lesefehler
+        if (chipStatusNotOk++ == 2)
+        {
+          //Serial.println("Lesefehler!");
+          displayText(2, (char*)"Lesefehler!", 2);
+          // Anzeige beim nächsten Loop zurücksetzen
+          chipID = 1;
+          chipIDhex = 1;
         }
       }
     }
-    snprintf(message[0], 21, "%02d.%02d.%04d %02d:%02d:%02d ", day(), month(), year(),hour(), minute(), second()) ;
-    displayText();
-    setBacklight(BACKLIGHT_SECONDS);
-  }
-  // Sobald ein Chip aufgelegt wird startet diese Abfrage
-  if (mfrc522.PICC_IsNewCardPresent()){
-    delay(200);
-    if (mfrc522.PICC_ReadCardSerial()){
-      setBacklight(BACKLIGHT_SECONDS);
-      // Hier wird die ID des Chips in die Variable chipID geladen
-      chipID = 0;
-      chipIDhex = 0;
-      //Serial.print("chipID 0x");
-      for (byte i = 0; i < mfrc522.uid.size; i++){
-        byte myByte = mfrc522.uid.uidByte[i];
-        //if (myByte < 16)
-        //  Serial.print("0");
-        //Serial.print(myByte,HEX);
-        //BUG!!
-        chipID=((chipID + myByte)*10);
-        chipIDhex=chipIDhex*256 + myByte;
-      }
-      //Serial.print("/");
-      //Serial.print(chipIDhex);
-      //Serial.print("/bisher: ");
-      //Serial.println(chipID);
+  #endif
+
+  #ifdef IIC_KEYPAD
+    if (IOok)
+      keypadloop();
+  #endif
   
-      //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
-      if (chipIDhex > 0 and (chipIDhex != chipIDPrev || myNow > myTimeId + 4) ) {
-        myTimeId = myNow;
-        chipIDPrev = chipIDhex;
-        sendAndReplay(chipIDhex);
-      }
-      // Danach 0,3 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
-      delay(300);
-    } else {
-      //Lesefehler
-      if (chipStatusNotOk++ == 2)
-      {
-        //Serial.println("Lesefehler!");
-        displayText(2, (char*)"Lesefehler!", 2);
-        // Anzeige beim nächsten Loop zurücksetzen
-        chipID = 1;
-        chipIDhex = 1;
-      }
-      // z.Zt. in Library: Serial.println("PICC_ReadCardSerial Status not ok");
-    }
-  }
-  keypadloop();
   Serial_Task();
+  chipFirstLoop = false;
 }
