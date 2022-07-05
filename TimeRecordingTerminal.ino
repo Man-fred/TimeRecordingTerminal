@@ -3,12 +3,14 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-02-04.trt.d1_mini";
+String mVersionNr = "V00-02-05.tr2.d1_mini";
+char hardware[3]= "D3";
+
 //EEPROM-Version
 char versionNeu[2] = "2";
 
 //Sketch
-//String mVersionVariante = "trt.";
+//String mVersionVariante = "tr2.";
 
 char keypass[21];
 
@@ -50,13 +52,11 @@ int z = 0;                   //Aktuelle EEPROM-Adresse zum lesen
     #include "RTClib.h"             //https://github.com/adafruit/RTClib
     RTC_DS3231 RTC;
   #endif
+  #define BACKLIGHT_SECONDS 5
+  #define BACKLIGHT_KEY (BACKLIGHT_SECONDS + 1)     // must be greater as BACKLIGHT_SECONDS
+  short myBacklightTimer=BACKLIGHT_KEY;
   #ifdef IIC_DISPLAY
     #include <LiquidCrystal_I2C.h>
-    //#define BACKLIGHT_PIN     13
-    //bool myBacklight=true;
-    #define BACKLIGHT_SECONDS 5
-    #define BACKLIGHT_KEY (BACKLIGHT_SECONDS + 1)     // must be greater as BACKLIGHT_SECONDS
-    short myBacklightTimer=BACKLIGHT_KEY;
     LiquidCrystal_I2C lcd(DISPLAY_I2C_ADDRESS, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // Set the LCD I2C address 0x27
   #endif
 #endif
@@ -76,13 +76,13 @@ const uint8_t charBitmap[][8] = {
 
 // esp8266 RFID-RC522
 #ifdef SPITEST
-  #define SS_PIN          D8         // SDA    D8 (15)
+  #define SS_PIN          15         // SDA    D8 (GPIO15)
                                      // CLK    D5
                                      // MOSI   D7
                                      // MISO   D6
                                      // IRQ    0 , war D1 -> D3 ?
                                      // GND
-  #define RST_PIN         D3         // RST    war D3, Test mit UNUSED_PIN keine Funktion
+  #define RST_PIN         0         // RST    D0 (GPIO16) auf gleicher Reihe wie D5-D8, war D3(GPIO0), Test mit UNUSED_PIN keine Funktion
                                      // 3.3
 #endif
 
@@ -153,36 +153,40 @@ String Temp = "";
 // Display
 void displayByte(char myChar){
 #ifdef IIC_DISPLAY
-  switch (myChar) {
-    case 132 /*ä*/ : lcd.write(byte(0)); break;
-    case 148 /*ö*/ : lcd.write(byte(1)); break;
-    case 129 /*ü*/ : lcd.write(byte(2)); break;
-    case 142 /*Ä*/ : lcd.write(byte(3)); break;
-    case 153 /*Ö*/ : lcd.write(byte(4)); break;
-    case 154 /*Ü*/ : lcd.write(byte(5)); break;
-    case 225 /*ß*/ : lcd.write(byte(6)); break;
-    case  25 /*↓*/ : lcd.write(byte(7)); break;
-    case  24 /*↑*/ : lcd.write(byte(8)); break;
-    default  : lcd.print(myChar); break;
+  if (DISPLAYok){
+    switch (myChar) {
+      case 132 /*ä*/ : lcd.write(byte(0)); break;
+      case 148 /*ö*/ : lcd.write(byte(1)); break;
+      case 129 /*ü*/ : lcd.write(byte(2)); break;
+      case 142 /*Ä*/ : lcd.write(byte(3)); break;
+      case 153 /*Ö*/ : lcd.write(byte(4)); break;
+      case 154 /*Ü*/ : lcd.write(byte(5)); break;
+      case 225 /*ß*/ : lcd.write(byte(6)); break;
+      case  25 /*↓*/ : lcd.write(byte(7)); break;
+      case  24 /*↑*/ : lcd.write(byte(8)); break;
+      default  : lcd.print(myChar); break;
+    }
   }
 #endif
 }
 
 void displayZeile(int row, char* rowMessage){
   #ifdef IIC_DISPLAY
-  bool ende = false;
-  byte rowEnd = 0;
-  
-  rowEnd = (row == 3 ? message3 : 20);
-  lcd.setCursor ( 0, row );        // go to the next line
-  for (byte j = 0; j < rowEnd; j++) {
-    if (rowMessage[j] == 0)
-      ende = true;
-    if (ende)
-      lcd.print(' ');
-    else
-      displayByte(rowMessage[j]);
-    //Serial.print((int)message[row][j]);Serial.println(message[row][j]);
+    if (DISPLAYok){
+    bool ende = false;
+    byte rowEnd = 0;
+    
+    rowEnd = (row == 3 ? message3 : 20);
+    lcd.setCursor ( 0, row );        // go to the next line
+    for (byte j = 0; j < rowEnd; j++) {
+      if (rowMessage[j] == 0)
+        ende = true;
+      if (ende)
+        lcd.print(' ');
+      else
+        displayByte(rowMessage[j]);
+      //Serial.print((int)message[row][j]);Serial.println(message[row][j]);
+    }
   }
   #endif
 }
@@ -236,8 +240,10 @@ void displayText(int row = 0, char* rowMessage = &message[0][0], int rowWait = 0
 
 void displayChar(int pos, int row, char myChar){
   #ifdef IIC_DISPLAY
-    lcd.setCursor ( pos, row );        // go to the next line
-    displayByte(myChar);
+    if (DISPLAYok){
+      lcd.setCursor ( pos, row );        // go to the next line
+      displayByte(myChar);
+    }
   #endif
 }
 
@@ -265,8 +271,38 @@ bool closeServer(){
   return true;
 }
 
+void toDo(char* eingabe, byte eingabePos){
+  byte pos;
+  int ziffer=0;
+      //eingabePos = eingabe.length();
+      Serial.println(eingabe);
+      switch (eingabe[0]){
+        case 'a' : for (pos=0; pos<=eingabePos; pos++) ssid[pos] = eingabe[pos+1]; break;
+        case 'b' : for (pos=0; pos<=eingabePos; pos++) passwort[pos] = eingabe[pos+1]; break;
+        case 'c' : for (pos=0; pos<=eingabePos; pos++) UpdateServer[pos] = eingabe[pos+1]; break;
+        case 'd' : for (pos=0; pos<=eingabePos; pos++) timeserver[pos] = eingabe[pos+1]; break;
+        case 'e' : for (pos=0; pos<=eingabePos; pos++) device_name[pos] = eingabe[pos+1]; break;
+        case 'f' : for (pos=0; pos<=eingabePos; pos++) terminalId[pos] = eingabe[pos+1]; break;
+        case 'g' : for (pos=0; pos<=eingabePos; pos++) serverHost[pos] = eingabe[pos+1]; break;
+        case 'h' : serverPort = 0; 
+                   for (pos=1; pos<eingabePos; pos++) {
+                     ziffer = eingabe[pos];
+                     ziffer = ziffer - 48;
+                     serverPort = serverPort * 10 + ziffer; 
+                   }
+                   break;
+        case 'i' : for (pos=0; pos<=eingabePos; pos++) keypass[pos] = eingabe[pos+1]; break;
+        
+        case 'r' : configRead(); break;
+        case 'p' : configPrint(); break;
+        case 'w' : configWrite(); break;
+        case 's' : testSPI(); break;
+        case 't' : testIIC(); break;
+      }
+}
+
 void testServerCommand(){
-  snprintf(data, 80, "R_%2sJ2222C__CC", terminalId, satzKennung);
+  snprintf(data, 80, "R_%2sJ%2s00C__CC", terminalId, hardware);
   client.println(data); 
   delay(100); 
   /*Echo vom Server lesen und eventuellen Befehl ausführen*/ 
@@ -274,6 +310,8 @@ void testServerCommand(){
   if (strncmp(line.c_str(),"update", 6) == 0) {
     ota();
   } else {
+    strcpy(eingabe, line.c_str());
+    toDo(eingabe, line.length());
     Serial.print("command?");
     Serial.print(line);
     Serial.println("?command");
@@ -526,12 +564,14 @@ void Zeit_Einstellen(){
           NTPNext = myTime + 6*60*60;
           displayChar(messageNTP, 3, 'T');
           setTime(NTPTime);
+          RTCTime = NTPTime;
           #ifdef IIC_RTC
-            RTCTime = RTC.now().unixtime();
-          #else
-            RTCTime = NTPTime;
+            if (RTCok){
+              RTCTime = RTC.now().unixtime();
+            }
           #endif
-          if(RTCTime > NTPTime ? RTCTime - NTPTime > 5 : NTPTime - RTCTime > 5) {
+          bool timediff = (RTCTime > NTPTime ? RTCTime - NTPTime > 5 : NTPTime - RTCTime > 5);
+          if (timediff){
             Temp = PrintDate(RTCTime) + "   " + PrintTime(RTCTime) + "   falsche RTC-Zeit";
             Serial.println( Temp );
             //LogSchreiben(Temp);
@@ -599,28 +639,31 @@ void connectWifi() {
     }
   }
 }
-#ifdef IIC_DISPLAY
-  void setBacklight(short set = 0) {
-    boolean isOn = (myBacklightTimer > 0);
-    if (set == 0){ // loop per second, toggle if timer gets to 0
-      if (myBacklightTimer > 0 && myBacklightTimer <= BACKLIGHT_SECONDS){
-        myBacklightTimer--;
+
+void setBacklight(short set = 0) {
+  #ifdef IIC_DISPLAY
+    if (DISPLAYok){
+      boolean isOn = (myBacklightTimer > 0);
+      if (set == 0){ // loop per second, toggle if timer gets to 0
+        if (myBacklightTimer > 0 && myBacklightTimer <= BACKLIGHT_SECONDS){
+          myBacklightTimer--;
+        }
+      } else if (set == BACKLIGHT_KEY){ // toggle with "*"
+        if (myBacklightTimer > 0){
+          myBacklightTimer = 0;
+        } else {
+          myBacklightTimer = BACKLIGHT_KEY;
+        }
+      } else if (set > myBacklightTimer){
+        myBacklightTimer = set;
+      } 
+      boolean toggle = (isOn != (myBacklightTimer > 0));
+      if (toggle){
+        lcd.setBacklight(!isOn); 
       }
-    } else if (set == BACKLIGHT_KEY){ // toggle with "*"
-      if (myBacklightTimer > 0){
-        myBacklightTimer = 0;
-      } else {
-        myBacklightTimer = BACKLIGHT_KEY;
-      }
-    } else if (set > myBacklightTimer){
-      myBacklightTimer = set;
-    } 
-    boolean toggle = (isOn != (myBacklightTimer > 0));
-    if (toggle){
-      lcd.setBacklight(!isOn); 
     }
-  }
-#endif
+  #endif
+}
 #ifdef IIC_KEYPAD
   #define keymapRows 4
   #define keymapCols 4
@@ -661,13 +704,9 @@ void connectWifi() {
                 if (keymapX){
                   //Serial.print("keypad  ");Serial.println(keymap[j][i]);
                   if (keymap[j][i] == '*'){
-# ifdef IIC_DISPLAY
                     setBacklight(BACKLIGHT_KEY);
-#endif
                   } else {
-# ifdef IIC_DISPLAY
                     setBacklight(BACKLIGHT_SECONDS);
-#endif
                     switch (keymap[j][i]){
                       case '#' : 
                         keypadPos = 0;
@@ -739,7 +778,7 @@ void configRead() {
   LeseEeprom(terminalId, 4);
   LeseEeprom(serverHost, LOGINLAENGE);
   serverPort = LeseEeprom();
-  serverPort = 17010;
+  //serverPort = 17010;
                                           // check 67
   LeseEeprom(keypass, LOGINLAENGE);
   LeseEepromCheck();
@@ -752,8 +791,8 @@ void configRead() {
     //UpdateServer[0] = 0;
     //strcpy(timeserver, "time.nist.gov");
     //strcpy(device_name, "Zeit");
+    //configWrite();
   }
-  configWrite();
 }
 void configWrite() {
   z = 0;
@@ -790,38 +829,14 @@ void configPrint() {
 void Serial_Task() {
   while (Serial.available() > 0)  
   { // Eingabe im Seriellen Monitor lesen
-    #ifdef IIC_DISPLAY
-      setBacklight(BACKLIGHT_SECONDS);
-    #endif
+    setBacklight(BACKLIGHT_SECONDS);
     char Zeichen = Serial.read();    
     byte pos = 0;
     int ziffer = 0;
     if (Zeichen == '\n') 
     { // Enter/Senden gedrückt
       eingabe[eingabePos] = 0;
-      Serial.println(eingabe);
-      switch (eingabe[0]){
-        case 'a' : for (pos=0; pos<=eingabePos; pos++) ssid[pos] = eingabe[pos+1]; break;
-        case 'b' : for (pos=0; pos<=eingabePos; pos++) passwort[pos] = eingabe[pos+1]; break;
-        case 'c' : for (pos=0; pos<=eingabePos; pos++) UpdateServer[pos] = eingabe[pos+1]; break;
-        case 'd' : for (pos=0; pos<=eingabePos; pos++) timeserver[pos] = eingabe[pos+1]; break;
-        case 'e' : for (pos=0; pos<=eingabePos; pos++) device_name[pos] = eingabe[pos+1]; break;
-        case 'f' : for (pos=0; pos<=eingabePos; pos++) terminalId[pos] = eingabe[pos+1]; break;
-        case 'g' : for (pos=0; pos<=eingabePos; pos++) serverHost[pos] = eingabe[pos+1]; break;
-        case 'h' : serverPort = 0; 
-                   for (pos=1; pos<eingabePos; pos++) {
-                     ziffer = eingabe[pos];
-                     ziffer = ziffer - 48;
-                     serverPort = serverPort * 10 + ziffer; 
-                   }
-                   break;
-        case 'i' : for (pos=0; pos<=eingabePos; pos++) keypass[pos] = eingabe[pos+1]; break;
-        
-        case 'r' : configRead(); break;
-        case 'p' : configPrint(); break;
-        case 'w' : configWrite(); break;
-        case 't' : testIIC(); break;
-      }
+      toDo(eingabe, eingabePos-1);
       eingabePos = 0; 
     } else {
       eingabe[eingabePos++] = Zeichen;
@@ -857,6 +872,12 @@ void ota(){
       displayText(2, (char*)"Update default?", 4);
       break;
   }
+}
+
+void testSPI(){
+  #ifdef SPITEST
+    RFIDok = (mfrc522.PCD_DumpVersionToSerial() > 0);  
+  #endif
 }
 
 void setup() {
@@ -966,28 +987,20 @@ void loop() {
         }
       }
     }
-    #ifdef IIC_DISPLAY
-      setBacklight();
-    #endif
+    setBacklight();
   }
   #ifdef SPI_RFID
     // Sobald ein Chip aufgelegt wird startet diese Abfrage
-    #ifdef IIC_DISPLAY
       if (chipFirstLoop)
         displayChar(messageBL, 3, 'A');
-    #endif
-    if (mfrc522.PICC_IsNewCardPresent()){
+      if (mfrc522.PICC_IsNewCardPresent()){
       delay(200);
-      #ifdef IIC_DISPLAY
-        displayChar(messageBL, 3, 'B');
-      #endif
+      displayChar(messageBL, 3, 'B');
       MFRC522::StatusCode result =mfrc522.PICC_Select(&mfrc522.uid);
 	    Serial.print("PICC-STATUS:");
 	    Serial.println(result);
-        #ifdef IIC_DISPLAY
-          setBacklight(BACKLIGHT_SECONDS);
-          displayChar(messageBL, 3, result);
-        #endif
+      setBacklight(BACKLIGHT_SECONDS);
+      displayChar(messageBL, 3, result);
       if (result == MFRC522::STATUS_OK){
         // Hier wird die ID des Chips in die Variable chipID geladen
         chipID = 0;
@@ -1009,9 +1022,7 @@ void loop() {
     
         //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
         if (chipIDhex > 0 and (chipIDhex != chipIDPrev || myNow > myTimeId + 4) ) {
-          #ifdef IIC_DISPLAY
-            displayChar(messageBL, 3, 'C');
-          #endif
+          displayChar(messageBL, 3, 'C');
           myTimeId = myNow;
           chipIDPrev = chipIDhex;
           sendAndReplay(chipIDhex);
