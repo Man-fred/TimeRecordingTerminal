@@ -3,11 +3,11 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-02-05.tr2.d1_mini";
-char hardware[3]= "D3";
+String mVersionNr = "V00-03-00.tr2.d1_mini";
+char hardware[5]= "D300";
 
 //EEPROM-Version
-char versionNeu[2] = "2";
+char versionNeu[2] = "3";
 
 //Sketch
 //String mVersionVariante = "tr2.";
@@ -54,7 +54,7 @@ int z = 0;                   //Aktuelle EEPROM-Adresse zum lesen
   #endif
   #define BACKLIGHT_SECONDS 5
   #define BACKLIGHT_KEY (BACKLIGHT_SECONDS + 1)     // must be greater as BACKLIGHT_SECONDS
-  short myBacklightTimer=BACKLIGHT_KEY;
+  int myBacklightTimer=BACKLIGHT_KEY;
   #ifdef IIC_DISPLAY
     #include <LiquidCrystal_I2C.h>
     LiquidCrystal_I2C lcd(DISPLAY_I2C_ADDRESS, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // Set the LCD I2C address 0x27
@@ -271,38 +271,54 @@ bool closeServer(){
   return true;
 }
 
+void testServer(bool command = false){
+  if (!ServerOk || command){
+    if (connectServer()){
+      if (command){
+        testServerCommand();
+      }
+      delay(100);
+      ServerOk = closeServer();
+    }
+  }
+}
+
 void toDo(char* eingabe, byte eingabePos){
   byte pos;
   int ziffer=0;
-      //eingabePos = eingabe.length();
-      Serial.println(eingabe);
-      switch (eingabe[0]){
-        case 'a' : for (pos=0; pos<=eingabePos; pos++) ssid[pos] = eingabe[pos+1]; break;
-        case 'b' : for (pos=0; pos<=eingabePos; pos++) passwort[pos] = eingabe[pos+1]; break;
-        case 'c' : for (pos=0; pos<=eingabePos; pos++) UpdateServer[pos] = eingabe[pos+1]; break;
-        case 'd' : for (pos=0; pos<=eingabePos; pos++) timeserver[pos] = eingabe[pos+1]; break;
-        case 'e' : for (pos=0; pos<=eingabePos; pos++) device_name[pos] = eingabe[pos+1]; break;
-        case 'f' : for (pos=0; pos<=eingabePos; pos++) terminalId[pos] = eingabe[pos+1]; break;
-        case 'g' : for (pos=0; pos<=eingabePos; pos++) serverHost[pos] = eingabe[pos+1]; break;
-        case 'h' : serverPort = 0; 
-                   for (pos=1; pos<eingabePos; pos++) {
-                     ziffer = eingabe[pos];
-                     ziffer = ziffer - 48;
-                     serverPort = serverPort * 10 + ziffer; 
-                   }
-                   break;
-        case 'i' : for (pos=0; pos<=eingabePos; pos++) keypass[pos] = eingabe[pos+1]; break;
-        
-        case 'r' : configRead(); break;
-        case 'p' : configPrint(); break;
-        case 'w' : configWrite(); break;
-        case 's' : testSPI(); break;
-        case 't' : testIIC(); break;
-      }
+  //eingabePos = eingabe.length();
+  Serial.println(eingabe);
+  switch (eingabe[0]){
+    case 'a' : for (pos=0; pos<=eingabePos; pos++) ssid[pos] = eingabe[pos+1]; break;
+    case 'b' : for (pos=0; pos<=eingabePos; pos++) passwort[pos] = eingabe[pos+1]; break;
+    case 'c' : for (pos=0; pos<=eingabePos; pos++) UpdateServer[pos] = eingabe[pos+1]; break;
+    case 'd' : for (pos=0; pos<=eingabePos; pos++) timeserver[pos] = eingabe[pos+1]; break;
+    case 'e' : for (pos=0; pos<=eingabePos; pos++) device_name[pos] = eingabe[pos+1]; break;
+    case 'f' : for (pos=0; pos<=eingabePos; pos++) terminalId[pos] = eingabe[pos+1]; break;
+    case 'g' : for (pos=0; pos<=eingabePos; pos++) serverHost[pos] = eingabe[pos+1]; break;
+    case 'h' : serverPort = 0; 
+               for (pos=1; pos<=eingabePos; pos++) {
+                 ziffer = eingabe[pos];
+                 ziffer = ziffer - 48;
+                 if (ziffer >= 48 and ziffer <= 57)
+                   serverPort = serverPort * 10 + ziffer; 
+               }
+               break;
+    case 'i' : for (pos=0; pos<=eingabePos; pos++) keypass[pos] = eingabe[pos+1]; break;
+    
+    case 'r' : configRead(); break;
+    case 'p' : configPrint(); break;
+    case 'w' : configWrite(); break;
+    
+    case 's' : testSPI(); break;
+    case 't' : testIIC(); break;
+    case 'o' : testServer(true); break;
+    case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend);
+  }
 }
 
 void testServerCommand(){
-  snprintf(data, 80, "R_%2sJ%2s00C__CC", terminalId, hardware);
+  snprintf(data, 80, "R_%2sJ%4sC__CC", terminalId, hardware);
   client.println(data); 
   delay(100); 
   /*Echo vom Server lesen und eventuellen Befehl ausführen*/ 
@@ -318,32 +334,25 @@ void testServerCommand(){
   }
 }
 
-void testServer(bool command = false){
-  if (!ServerOk || command){
-    if (connectServer()){
-      if (command){
-        testServerCommand();
-      }
-      ServerOk = closeServer();
-    }
-  }
-}
-
 bool sendToServer(bool onlyOffline = false){
   bool myConnected = true;
+  int offlineLine = 0;
   if (connectServer()){
     // Daten im Offline-Speicher?
-    while (myConnected && offlineCount > offlineSend){
-      File fin = LittleFS.open("/data/01", "r");
-      if (fin) {
-        fin.seek((offlineSend-1)*51, SeekSet);
-        if(fin.available()){
+    File fin = LittleFS.open("/data/01", "r");
+    if (fin) {
+      while (myConnected && offlineCount > offlineSend && fin.available()){
+        //fin.seek((offlineSend-1)*51, SeekSet);
+        //if(fin.available()){
+        // '\n' is not included in the returned string, but the last char '\r' is
+        String line=fin.readStringUntil('\n');
+        offlineLine++;
+        if (offlineLine > offlineSend) {
+          // nur neue, nicht gesendete übertragen
           displayChar(messageUPL, 3, '>');
-          // '\n' is not included in the returned string, but the last char '\r' is
-          String line=fin.readStringUntil('\n');
-          //Serial.print("SE-Line: ");
-          //Serial.println(line);
-          //client.println(line); 
+          Serial.print("SE-Line: ");
+          Serial.println(line);
+          client.println(line); 
           delay(100); 
           /*Echo vom Server lesen und verwerfen, da alte Daten*/ 
           displayChar(messageUPL, 3, '<');
@@ -359,7 +368,7 @@ bool sendToServer(bool onlyOffline = false){
             File fout = LittleFS.open("/data/offline", "a");
             if (fout) {
               fout.write(offlineSend);
-              int offlineData = fout.size();
+              //int offlineData = fout.size();
               fout.close();
               //Serial.print("SE-Size: ");
               //Serial.println(offlineData);
@@ -368,12 +377,14 @@ bool sendToServer(bool onlyOffline = false){
             }
           }
         }
-        fin.close();
-      } else {
-        //Serial.println("file offline open failed");
       }
+      fin.close();
     }
-    if (offlineCount == offlineSend && offlineCount > 0) {
+    else {
+      //Serial.println("file offline open failed");
+    }
+    
+    if (offlineLine == offlineSend && offlineLine > 0) {
       LittleFS.remove("/data/offline");
       LittleFS.remove("/data/01");
       offlineCount = 0;
@@ -425,6 +436,7 @@ void sendAndReplay(unsigned long id) {
   3 dppz.satz.kennung   X
   4 dppz.satz.art       F0 (Automatik), sonst KO, GE, DG, SO
   5 dppz.karten.nr      50 (Bielemeier)
+  R_90J2222X__FO0000000246787666520220706112409_00000000001515270
 */
     //snprintf(data, 80, "%s %s %10d 4d%2d%2d%2d%2d%2d       ", message[3][messageWIFI], terminal, id, year(), month(), day(),hour(), minute(), second()) ;
     //R_11J22223__44_________5555555566666666777777____
@@ -443,7 +455,7 @@ void sendAndReplay(unsigned long id) {
       File f = LittleFS.open("/data/01", "a");
       if (f) {
         f.println(data);
-        int offlineData = f.size();
+        //int offlineData = f.size();
         f.close();
         //Serial.print("01-Size: ");
         //Serial.print(offlineData);
@@ -483,8 +495,8 @@ void testIIC()
 
     if (error == 0)
     {
-      if (address == IO_I2C_ADDRESS)  IOok  = 1;
-      if (address == RTC_I2C_ADDRESS) RTCok = 1;
+      if (address == IO_I2C_ADDRESS)      IOok  = 1;
+      if (address == RTC_I2C_ADDRESS)     RTCok = 1;
       if (address == DISPLAY_I2C_ADDRESS) DISPLAYok = 1;
       Serial.print("I2C device found at address 0x");
       if (address < 16)
@@ -504,17 +516,27 @@ void testIIC()
       Serial.println(address, HEX);
     }
   }
+  hardware[3] = '0';
   if (nDevices == 0)
     Serial.println("No I2C devices found\n");
   else {
     #ifdef IIC_KEYPAD
-      if (IOok)  Serial.print("IO ok - ");
+      if (IOok) { 
+        Serial.print("IO ok - "); 
+        hardware[3] = hardware[3] + 1; 
+      }
     #endif
     #ifdef IIC_RTC
-      if (RTCok) Serial.print("RTC ok - ");
+      if (RTCok) { 
+        Serial.print("RTC ok - "); 
+        hardware[3] = hardware[3] + 2; 
+      }
     #endif
     #ifdef IIC_DISPLAY
-      if (DISPLAYok) Serial.print("DISPLAY ok - ");
+      if (DISPLAYok) { 
+        Serial.print("DISPLAY ok - "); 
+        hardware[3] = hardware[3] + 4; 
+      }
     #endif
     Serial.println("done\n");
   }
@@ -640,7 +662,7 @@ void connectWifi() {
   }
 }
 
-void setBacklight(short set = 0) {
+void setBacklight(int set = 0) {
   #ifdef IIC_DISPLAY
     if (DISPLAYok){
       boolean isOn = (myBacklightTimer > 0);
@@ -778,27 +800,20 @@ void configRead() {
   LeseEeprom(terminalId, 4);
   LeseEeprom(serverHost, LOGINLAENGE);
   serverPort = LeseEeprom();
-  //serverPort = 17010;
-                                          // check 67
   LeseEeprom(keypass, LOGINLAENGE);
-  LeseEepromCheck();
-  EEPROM.end();
-  //if (version[0] != versionNeu[0] || !LeseEepromCheck())
-  { // Lese-Fehler, alles initialisieren außer ssid / passwort, 
-    // da sonst der Zugang zum eventuell laufenden System zerstört wird 
-    // ssid[0] = 0;
-    // passwort[0] = 0;
-    //UpdateServer[0] = 0;
-    //strcpy(timeserver, "time.nist.gov");
-    //strcpy(device_name, "Zeit");
-    //configWrite();
+  if (version[0] == '2') {
+    myBacklightTimer = BACKLIGHT_KEY;
+  } else {
+    myBacklightTimer = LeseEeprom();
   }
+  LeseEepromCheck();                // V2 Pos 266
+  //version[0] = versionNeu[0];
+  EEPROM.end();
 }
 void configWrite() {
   z = 0;
   EEPROM.begin(512);
   SchreibeEeprom(versionNeu,2 );
-  version[0] = versionNeu[0];
   SchreibeEeprom(ssid, sizeof(ssid));
   SchreibeEeprom(passwort, sizeof(passwort));
   SchreibeEeprom(UpdateServer, LOGINLAENGE);
@@ -808,6 +823,7 @@ void configWrite() {
   SchreibeEeprom(serverHost, LOGINLAENGE);
   SchreibeEeprom(serverPort);
   SchreibeEeprom(keypass, LOGINLAENGE);
+  SchreibeEeprom(myBacklightTimer);
   SchreibeEepromCheck();
   EEPROM.commit();
   EEPROM.end();
@@ -875,8 +891,9 @@ void ota(){
 }
 
 void testSPI(){
-  #ifdef SPITEST
-    RFIDok = (mfrc522.PCD_DumpVersionToSerial() > 0);  
+  #ifdef SPI_RFID
+    RFIDok = (mfrc522.PCD_DumpVersionToSerial() > 0); 
+    hardware[2] = RFIDok ? '1' : '0';
   #endif
 }
 
@@ -895,8 +912,7 @@ void setup() {
       //Kurze Pause nach dem Initialisieren   
       //hierdurch Absturz? 
       delay(10);
-      //hierdurch Absturz? 
-      RFIDok = (mfrc522.PCD_DumpVersionToSerial() > 0);  
+      testSPI();
     #endif
   #endif
 
@@ -907,17 +923,11 @@ void setup() {
       if (DISPLAYok) {
         //oledSplash();
         int charBitmapSize = (sizeof(charBitmap ) / sizeof (charBitmap[0]));
-
-        // Switch on the backlight
-        //pinMode ( BACKLIGHT_PIN, OUTPUT );
-        //digitalWrite ( BACKLIGHT_PIN, HIGH );
         lcd.begin(20,4);               // initialize the lcd 
-
         for ( int i = 0; i < charBitmapSize; i++ )
         {
           lcd.createChar ( i, (uint8_t *)charBitmap[i] );
         }
-
         lcd.home ();                   // go home
         displayText(1, (char*)"Display ok");
       }
@@ -926,7 +936,7 @@ void setup() {
   LittleFS.begin();
   File fin = LittleFS.open("/data/01", "r");
   if (fin) {
-    offlineCount = fin.size()/51;
+    offlineCount = fin.size()/64;
     fin.close();
   }
   File fout = LittleFS.open("/data/offline", "r");
@@ -937,7 +947,7 @@ void setup() {
   
   FSInfo fs_info;
   LittleFS.info(fs_info);
-  //Serial.println("totalBytes " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
+  Serial.println("LittleFS total " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
   
   displayChar(messageNTP, 3, '-');
   displayChar(messageONL, 3, '-');
@@ -964,6 +974,8 @@ void loop() {
   if (myTime != myNow) {
     // loop per second
     myTime = myNow;
+    myNow10  = myNow / 60; // Test von 10 Sek. auf 60 Sek
+    myNow600 = myNow / 600;
     myTimeFromTics = millis() / 1000;
     snprintf(message[0], 21, "%02d.%02d.%04d %02d:%02d:%02d ", day(), month(), year(),hour(), minute(), second()) ;
     displayText();
@@ -971,19 +983,18 @@ void loop() {
     connectWifi();          // Try to connect WiFi aSync
     if (WifiConnected > 0 ){
       Zeit_Einstellen();
-      myNow10  = myNow / 10;
-      myNow600 = myNow / 600;
       if (myNow10 != myTime10){
         // loop per 10 seconds
         myTime10 = myNow10;
         if (offlineCount > offlineSend){
           sendToServer(true);
         } else {
-          testServer(myNow600 != myTime600);
+          //testServer(true);//myNow600 != myTime600); // Test jedesmal Auftrag abfragen
         }
         if (myNow600 != myTime600){
           // loop per 10 minutes
           myTime600 = myNow600;
+          testServer(true);
         }
       }
     }
