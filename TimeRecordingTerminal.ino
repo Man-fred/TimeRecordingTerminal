@@ -3,6 +3,7 @@
 #include "defines.h"
 
 //Update-Version
+int iVersionNr = 2;
 const String mVersionNr = "V00-03-01.tr2.d1_mini";
 char hardware[5]= "D300";
 
@@ -314,9 +315,10 @@ void toDo(char* eingabe, byte eingabePos){
     case 't' : testIIC(); break;
     
     case 'o' : testServer(true); break;
-    case 'v' : Serial.println(mVersionNr); break;
+    case 'v' : Serial.printf("%s", mVersionNr); break;
     case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend); break;
     case 'z' : ESP.restart(); break;
+    case '0' : ota(); break;
   }
 }
 
