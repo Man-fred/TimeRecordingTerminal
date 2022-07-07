@@ -3,7 +3,7 @@
 #include "defines.h"
 
 //Update-Version
-String mVersionNr = "V00-03-00.tr2.d1_mini";
+const String mVersionNr = "V00-03-01.tr2.d1_mini";
 char hardware[5]= "D300";
 
 //EEPROM-Version
@@ -312,8 +312,11 @@ void toDo(char* eingabe, byte eingabePos){
     
     case 's' : testSPI(); break;
     case 't' : testIIC(); break;
+    
     case 'o' : testServer(true); break;
+    case 'v' : Serial.println(mVersionNr);
     case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend);
+    case 'z' : ESP.restart();
   }
 }
 
@@ -866,8 +869,8 @@ void ota(){
 #ifdef ESP32
   t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
 #else      
-  //t_httpUpdate_return ret = ESPhttpUpdate.update(UpdateServer, 80, "/esp8266/ota.php", (mVersionNr + mVersionBoard).c_str());
-  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-02-04.trt.d1_mini");
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
+  //t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-03-01.trt.d1_mini");
 #endif
   
   switch (ret) {
