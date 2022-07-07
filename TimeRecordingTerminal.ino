@@ -314,9 +314,9 @@ void toDo(char* eingabe, byte eingabePos){
     case 't' : testIIC(); break;
     
     case 'o' : testServer(true); break;
-    case 'v' : Serial.println(mVersionNr);
-    case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend);
-    case 'z' : ESP.restart();
+    case 'v' : Serial.println(mVersionNr); break;
+    case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend); break;
+    case 'z' : ESP.restart(); break;
   }
 }
 
