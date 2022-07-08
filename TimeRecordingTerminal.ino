@@ -33,8 +33,10 @@ char satzKennung = 'X';
   void handleNotFound();
   void handleLogin();
   void handleCommand();
-
+  String webCommand = "";
+  String webResult = "";
 #endif
+
 #include <EEPROM.h>
 #include <LittleFS.h>
 
@@ -913,7 +915,6 @@ void testSPI(){
     hardware[2] = RFIDok ? '1' : '0';
   #endif
 }
-String webCommand = "";
 void handleRoot() {
   String message = "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\"></head><body>";
          message += String(keypadUnlocked ? "un" : "")+"locked - Befehl: "+webCommand+" - Antwort: "+webResult+"<br />";
@@ -943,7 +944,10 @@ void handleCommand() {                          // If a POST request is made to 
   }
   if( keypadUnlocked && httpserver.hasArg("command") ) { // If both the username and the password are correct
     webCommand = httpserver.arg("command");
-    toDo(webCommand.c_str(), webCommand.length());
+    int webLength = webCommand.length() < 30 ? webCommand.length() : 30;
+    webCommand.toCharArray(eingabe, webLength+1 );
+    Serial.print("ToDo: ");Serial.print(eingabe);Serial.print("-");Serial.println(webLength);
+    toDo(eingabe , webLength);
     //displayText(3, (char*)"unlocked", 4);
   }
   httpserver.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
