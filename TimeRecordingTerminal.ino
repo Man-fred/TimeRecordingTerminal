@@ -313,7 +313,7 @@ void toDo(char* eingabe, byte eingabePos){
                for (pos=1; pos<=eingabePos; pos++) {
                  ziffer = eingabe[pos];
                  ziffer = ziffer - 48;
-                 if (ziffer >= 48 and ziffer <= 57)
+                 if (ziffer >= 0 and ziffer <= 9)
                    serverPort = serverPort * 10 + ziffer; 
                }
                break;
@@ -327,7 +327,7 @@ void toDo(char* eingabe, byte eingabePos){
     case 't' : testIIC(); break;
     
     case 'o' : testServer(true); break;
-    case 'v' : Serial.print(versionNr);break;
+    case 'v' : webResult = String(versionNr); Serial.print(versionNr); break;
     case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend); break;
     case 'z' : ESP.restart(); break;
     case '0' : ota(); break;
@@ -883,8 +883,8 @@ void ota(){
 #ifdef ESP32
   t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
 #else      
-  //t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
-  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-03-01.trt.d1_mini");
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", versionNr);
+  //t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-03-01.trt.d1_mini");
 #endif
   
   switch (ret) {
@@ -913,36 +913,46 @@ void testSPI(){
     hardware[2] = RFIDok ? '1' : '0';
   #endif
 }
-
+String webCommand = "";
 void handleRoot() {
-  String message ="<form action=\"/login\" method=\"POST\"><input type=\"password\" name=\"password\" placeholder=\"Password\"><input type=\"submit\" value=\"login\"></form>";
-  message +="<form action=\"/command\" method=\"POST\"><input type=\"text\" name=\"command\" placeholder=\"Command\"><input type=\"submit\" value=\"command\"></form>";
-  message+="XX";
-  httpserver.send(200, "text/plain", message);   // Send HTTP status 200 (Ok) and send some text to the browser/client
+  String message = "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\"></head><body>";
+         message += String(keypadUnlocked ? "un" : "")+"locked - Befehl: "+webCommand+" - Antwort: "+webResult+"<br />";
+         message += "<form action=\"/command\" method=\"POST\"><input type=\"password\" name=\"password\" placeholder=\"Password\"><br />";
+         message += "<input type=\"text\" name=\"command\" placeholder=\"Command\"><input type=\"submit\" value=\"command\"></form><br />";
+         message += "XX</body></html>";
+  httpserver.send(200, "text/html", message );   // Send HTTP status 200 (Ok) and send some text to the browser/client
 }
 
 void handleNotFound(){
-  httpserver.send(404, "text/plain", "404: Not found"); // Send HTTP status 404 (Not Found) when there's no handler for the URI in the request
+  httpserver.send(404, "text/html", "404: Not found"); // Send HTTP status 404 (Not Found) when there's no handler for the URI in the request
 }
 
 void handleLogin() {                          // If a POST request is made to URI /LED
-  if( server.hasArg("password") ) { // If both the username and the password are correct
-    keypadUnlocked = (strcmp(server.arg("password").c_str(), keypass) == 0);
+  if( httpserver.hasArg("password") ) { // If both the username and the password are correct
+    keypadUnlocked = (strcmp(httpserver.arg("password").c_str(), keypass) == 0);
     //displayText(3, (char*)"unlocked", 4);
   }
-  server.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
-  server.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
+  httpserver.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
+  httpserver.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
 }
 
 void handleCommand() {                          // If a POST request is made to URI /LED
-  if( keypadUnlocked && server.hasArg("command") ) { // If both the username and the password are correct
-    //toDo(server.arg("command").c_str(), server.arg("command").length());
+  if( httpserver.hasArg("password") ) { // If both the username and the password are correct
+    keypadUnlocked = (strcmp(httpserver.arg("password").c_str(), keypass) == 0);
     //displayText(3, (char*)"unlocked", 4);
   }
-  server.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
-  server.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
+  if( keypadUnlocked && httpserver.hasArg("command") ) { // If both the username and the password are correct
+    webCommand = httpserver.arg("command");
+    toDo(webCommand.c_str(), webCommand.length());
+    //displayText(3, (char*)"unlocked", 4);
+  }
+  httpserver.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
+  httpserver.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
 }
 
+bool handleFile() {
+  return LittleFS.exists(httpserver.uri()) ? ({File f = LittleFS.open(httpserver.uri(), "r"); httpserver.streamFile(f, mime::getContentType(httpserver.uri())); f.close(); true;}) : false;
+}
 
 void setup() {
   Serial.begin(115200);
@@ -981,12 +991,6 @@ void setup() {
     #endif
   #endif
 
-  httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
-  httpserver.onNotFound(handleNotFound);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
-  httpserver.on("/login", HTTP_POST, handleLogin);
-  httpserver.on("/command", HTTP_POST, handleCommand);
-  httpserver.begin();
-
   LittleFS.begin();
   File fin = LittleFS.open("/data/01", "r");
   if (fin) {
@@ -1002,7 +1006,14 @@ void setup() {
   FSInfo fs_info;
   LittleFS.info(fs_info);
   Serial.println("LittleFS total " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
-  
+
+  httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
+  httpserver.onNotFound(handleNotFound);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
+  httpserver.on("/favicon.ico", HTTP_GET, handleFile);
+  httpserver.on("/login", HTTP_POST, handleLogin);
+  httpserver.on("/command", HTTP_POST, handleCommand);
+  httpserver.begin();
+
   displayChar(messageNTP, 3, '-');
   displayChar(messageONL, 3, '-');
   getRTC();
