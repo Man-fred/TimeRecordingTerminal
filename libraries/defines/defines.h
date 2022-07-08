@@ -25,10 +25,5 @@
 # define DISPLAY_I2C_ADDRESS 0x27
 
 #define LOGINLAENGE 32
-/*
-#define COOKIE_MAX 10
-#define COOKIE_ADMINISTRATOR 1
-#define COOKIE_BENUTZER 2
-*/
-//#define SPIFFS LittleFS
+
 #endif

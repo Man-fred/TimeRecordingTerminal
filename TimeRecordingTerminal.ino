@@ -1,12 +1,13 @@
 // Basic MFRC522 RFID Reader Code by cooper @ my.makesmart.net
 // Released under Creative Commons - CC by cooper@my.makesmart.net
 #include "defines.h"
-
+#define WEBSERVER
 //Update-Version
-int iVersionNr = 2;
-const String mVersionNr = "V00-03-01.tr2.d1_mini";
+//const String mVersionNr = "V00-03-01.tr2.d1_mini";
+const String mVersionNr = "V";
+//char mVersionNr[30] = "V00-03-01.tr2.d1_mini";
 char hardware[5]= "D300";
-
+char versionNr[30] = "V00-03-02.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "3";
 
@@ -15,8 +16,8 @@ char versionNeu[2] = "3";
 
 char keypass[21];
 
-char ssid[32] = "\0";
-char passwort[64] = "\0";
+char ssid[32] = "";
+char passwort[64] = "";
 char serverHost[LOGINLAENGE] = ""; //IP des Servers 
 
 #include <stdio.h>
@@ -25,11 +26,20 @@ int  serverPort = 0; //Port des Servers (ServerSocket)
 char terminalId[4] = "99";
 char satzKennung = 'X';
 #include <ESP8266WiFi.h>
+#ifdef WEBSERVER
+  //#include <WiFiClient.h>
+  //#include <ESP8266WebServer.h>
+  void handleRoot();              // function prototypes for HTTP handlers
+  void handleNotFound();
+  void handleLogin();
+  void handleCommand();
+
+#endif
 #include <EEPROM.h>
 #include <LittleFS.h>
 
 #include "common.h"
-#include "myFS.h"
+//#include "myFS.h"
 //#include "log.h"
 #include "ntp.h"
 
@@ -129,7 +139,9 @@ bool keypadUnlocked = false;
 
 //send and replay
 WiFiClient client; 
+ESP8266WebServer  httpserver(80); 
 bool ServerOk = false;
+String header;
 char data[80];
 char dataReturn[42];
 int offlineCount = 0;
@@ -315,7 +327,7 @@ void toDo(char* eingabe, byte eingabePos){
     case 't' : testIIC(); break;
     
     case 'o' : testServer(true); break;
-    case 'v' : Serial.printf("%s", mVersionNr); break;
+    case 'v' : Serial.print(versionNr);break;
     case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend); break;
     case 'z' : ESP.restart(); break;
     case '0' : ota(); break;
@@ -871,8 +883,8 @@ void ota(){
 #ifdef ESP32
   t_httpUpdate_return ret = httpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
 #else      
-  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
-  //t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-03-01.trt.d1_mini");
+  //t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", mVersionNr);
+  t_httpUpdate_return ret = ESPhttpUpdate.update(wifiClient, UpdateServer, 80, "/esp8266/ota.php", "V00-03-01.trt.d1_mini");
 #endif
   
   switch (ret) {
@@ -901,6 +913,36 @@ void testSPI(){
     hardware[2] = RFIDok ? '1' : '0';
   #endif
 }
+
+void handleRoot() {
+  String message ="<form action=\"/login\" method=\"POST\"><input type=\"password\" name=\"password\" placeholder=\"Password\"><input type=\"submit\" value=\"login\"></form>";
+  message +="<form action=\"/command\" method=\"POST\"><input type=\"text\" name=\"command\" placeholder=\"Command\"><input type=\"submit\" value=\"command\"></form>";
+  message+="XX";
+  httpserver.send(200, "text/plain", message);   // Send HTTP status 200 (Ok) and send some text to the browser/client
+}
+
+void handleNotFound(){
+  httpserver.send(404, "text/plain", "404: Not found"); // Send HTTP status 404 (Not Found) when there's no handler for the URI in the request
+}
+
+void handleLogin() {                          // If a POST request is made to URI /LED
+  if( server.hasArg("password") ) { // If both the username and the password are correct
+    keypadUnlocked = (strcmp(server.arg("password").c_str(), keypass) == 0);
+    //displayText(3, (char*)"unlocked", 4);
+  }
+  server.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
+  server.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
+}
+
+void handleCommand() {                          // If a POST request is made to URI /LED
+  if( keypadUnlocked && server.hasArg("command") ) { // If both the username and the password are correct
+    //toDo(server.arg("command").c_str(), server.arg("command").length());
+    //displayText(3, (char*)"unlocked", 4);
+  }
+  server.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
+  server.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
+}
+
 
 void setup() {
   Serial.begin(115200);
@@ -937,7 +979,14 @@ void setup() {
         displayText(1, (char*)"Display ok");
       }
     #endif
-# endif
+  #endif
+
+  httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
+  httpserver.onNotFound(handleNotFound);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
+  httpserver.on("/login", HTTP_POST, handleLogin);
+  httpserver.on("/command", HTTP_POST, handleCommand);
+  httpserver.begin();
+
   LittleFS.begin();
   File fin = LittleFS.open("/data/01", "r");
   if (fin) {
@@ -1065,5 +1114,7 @@ void loop() {
   #endif
   
   Serial_Task();
+  httpserver.handleClient();                    // Listen for HTTP requests from clients
+
   chipFirstLoop = false;
 }
