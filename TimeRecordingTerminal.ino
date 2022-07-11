@@ -7,7 +7,7 @@
 const String mVersionNr = "V";
 //char mVersionNr[30] = "V00-03-01.tr2.d1_mini";
 char hardware[5]= "D300";
-char versionNr[30] = "V00-03-02.tr2.d1_mini";
+char versionNr[30] = "V00-03-03.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "3";
 
@@ -30,18 +30,25 @@ char satzKennung = 'X';
   //#include <WiFiClient.h>
   //#include <ESP8266WebServer.h>
   void handleRoot();              // function prototypes for HTTP handlers
-  void handleNotFound();
+  void handleFile();
   void handleLogin();
   void handleCommand();
   String webCommand = "";
   String webResult = "";
+  // allows you to set the realm of authentication Default:"Login Required"
+  const char* www_realm = "Custom Auth Realm";
+  // the Content of the HTML response in case of Unautherized Access Default:empty
+  String authFailResponse = "Authentication Failed";
+  
+  const char* www_username = "admin";
+  const char* www_password = "esp8266";
 #endif
 
 #include <EEPROM.h>
 #include <LittleFS.h>
 
 #include "common.h"
-//#include "myFS.h"
+#include "myFS.h"
 //#include "log.h"
 #include "ntp.h"
 
@@ -124,6 +131,7 @@ unsigned long myTimeFromTics = 0;
 //Display
 #define LEER "                    "
 char message[4][21] = {LEER, LEER, LEER, "                xxxx"};
+char messageState[7] = "      ";
 const byte message3   = 13;
 const byte messageBL  = 14;
 const byte messageUPL = 15;
@@ -257,7 +265,35 @@ void displayChar(int pos, int row, char myChar){
   #ifdef IIC_DISPLAY
     if (DISPLAYok){
       lcd.setCursor ( pos, row );        // go to the next line
+      if (row==3) message[3][pos]=myChar;
       displayByte(myChar);
+    }
+  #endif
+  if (pos >=14 && pos <= 19)
+  messageState[pos-14] = myChar;
+}
+
+void setBacklight(int set = 0) {
+  #ifdef IIC_DISPLAY
+    if (DISPLAYok){
+      boolean isOn = (myBacklightTimer > 0);
+      if (set == 0){ // loop per second, toggle if timer gets to 0
+        if (myBacklightTimer > 0 && myBacklightTimer <= BACKLIGHT_SECONDS){
+          myBacklightTimer--;
+        }
+      } else if (set == BACKLIGHT_KEY){ // toggle with "*"
+        if (myBacklightTimer > 0){
+          myBacklightTimer = 0;
+        } else {
+          myBacklightTimer = BACKLIGHT_KEY;
+        }
+      } else if (set > myBacklightTimer){
+        myBacklightTimer = set;
+      } 
+      boolean toggle = (isOn != (myBacklightTimer > 0));
+      if (toggle){
+        lcd.setBacklight(!isOn); 
+      }
     }
   #endif
 }
@@ -327,12 +363,14 @@ void toDo(char* eingabe, byte eingabePos){
     
     case 's' : testSPI(); break;
     case 't' : testIIC(); break;
+    case 'u' : webResult = handleDirList("/",3); Serial.println(webResult); break;
     
     case 'o' : testServer(true); break;
-    case 'v' : webResult = String(versionNr); Serial.print(versionNr); break;
+    case 'v' : webResult = String(hardware) +";"+String(versionNr); Serial.println(webResult); break;
     case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend); break;
     case 'z' : ESP.restart(); break;
     case '0' : ota(); break;
+    case '*' : setBacklight(BACKLIGHT_KEY); break;
   }
 }
 
@@ -681,30 +719,6 @@ void connectWifi() {
   }
 }
 
-void setBacklight(int set = 0) {
-  #ifdef IIC_DISPLAY
-    if (DISPLAYok){
-      boolean isOn = (myBacklightTimer > 0);
-      if (set == 0){ // loop per second, toggle if timer gets to 0
-        if (myBacklightTimer > 0 && myBacklightTimer <= BACKLIGHT_SECONDS){
-          myBacklightTimer--;
-        }
-      } else if (set == BACKLIGHT_KEY){ // toggle with "*"
-        if (myBacklightTimer > 0){
-          myBacklightTimer = 0;
-        } else {
-          myBacklightTimer = BACKLIGHT_KEY;
-        }
-      } else if (set > myBacklightTimer){
-        myBacklightTimer = set;
-      } 
-      boolean toggle = (isOn != (myBacklightTimer > 0));
-      if (toggle){
-        lcd.setBacklight(!isOn); 
-      }
-    }
-  #endif
-}
 #ifdef IIC_KEYPAD
   #define keymapRows 4
   #define keymapCols 4
@@ -915,17 +929,15 @@ void testSPI(){
     hardware[2] = RFIDok ? '1' : '0';
   #endif
 }
+
 void handleRoot() {
   String message = "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\"></head><body>";
          message += String(keypadUnlocked ? "un" : "")+"locked - Befehl: "+webCommand+" - Antwort: "+webResult+"<br />";
          message += "<form action=\"/command\" method=\"POST\"><input type=\"password\" name=\"password\" placeholder=\"Password\"><br />";
          message += "<input type=\"text\" name=\"command\" placeholder=\"Command\"><input type=\"submit\" value=\"command\"></form><br />";
+         message += "<form action=\"/list\" method=\"POST\"><input type=\"text\" name=\"dir\" value=\"/\"><br /><input type=\"submit\" value=\"list\"></form><br />";
          message += "XX</body></html>";
   httpserver.send(200, "text/html", message );   // Send HTTP status 200 (Ok) and send some text to the browser/client
-}
-
-void handleNotFound(){
-  httpserver.send(404, "text/html", "404: Not found"); // Send HTTP status 404 (Not Found) when there's no handler for the URI in the request
 }
 
 void handleLogin() {                          // If a POST request is made to URI /LED
@@ -949,13 +961,35 @@ void handleCommand() {                          // If a POST request is made to 
     Serial.print("ToDo: ");Serial.print(eingabe);Serial.print("-");Serial.println(webLength);
     toDo(eingabe , webLength);
     //displayText(3, (char*)"unlocked", 4);
+    String output = "[";
+    output += "{\"lock\":\"";
+      output += String(keypadUnlocked);
+      output += "\",\"command\":\"";
+      output += webCommand;
+      output += "\",\"result\":\"";
+      output += webResult;
+      output += "\",\"display0\":\"";
+      output += message[0];
+      output += "\",\"display1\":\"";
+      output += message[1];
+      output += "\",\"display2\":\"";
+      output += message[2];
+      output += "\",\"display3\":\"";
+      output += message[3];
+      output += "             \",\"display4\":\"";
+      output += messageState;
+      output += "\"}";
+    
+
+    output += "]";
+    httpserver.send(200, "text/json", output);
   }
-  httpserver.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
-  httpserver.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
+  //httpserver.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
+  //httpserver.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
 }
 
-bool handleFile() {
-  return LittleFS.exists(httpserver.uri()) ? ({File f = LittleFS.open(httpserver.uri(), "r"); httpserver.streamFile(f, mime::getContentType(httpserver.uri())); f.close(); true;}) : false;
+byte is_authentified(){
+  return 1;
 }
 
 void setup() {
@@ -1006,16 +1040,38 @@ void setup() {
     offlineSend = fout.size();
     fout.close();
   }
-  
   FSInfo fs_info;
   LittleFS.info(fs_info);
   Serial.println("LittleFS total " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
 
-  httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
+  //httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
   httpserver.onNotFound(handleNotFound);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
+  httpserver.on("/index.html", HTTP_GET, handleFile);
   httpserver.on("/favicon.ico", HTTP_GET, handleFile);
   httpserver.on("/login", HTTP_POST, handleLogin);
   httpserver.on("/command", HTTP_POST, handleCommand);
+  httpserver.on("/list", HTTP_POST, handleFileList);
+ 
+  httpserver.on("/upload", HTTP_GET, []() {
+    String serverIndex = "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
+    if (is_authentified()) {
+      httpserver.sendHeader("Connection", "close");
+      httpserver.sendHeader("Access-Control-Allow-Origin", "*");
+      httpserver.send(200, "text/html", serverIndex);
+    }
+  });
+  httpserver.on("/upload", HTTP_POST,/* []() {
+    String serverIndex = "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
+    if (is_authentified()) {
+      httpserver.send(200, "text/html", serverIndex);
+    }
+  }*/handleRoot, handleFileUpload);
+  
+  httpserver.on("/upload.json", HTTP_POST, []() {
+    if (is_authentified()) {
+      httpserver.send(200, "text/json", "{\"ok\":1}");
+    }
+  }, handleFileUpload);
   httpserver.begin();
 
   displayChar(messageNTP, 3, '-');
