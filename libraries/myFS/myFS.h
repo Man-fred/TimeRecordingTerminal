@@ -5,17 +5,19 @@
 #include <LittleFS.h>
 
 extern byte is_authentified();
+
 String getContentType(String filename);
-void handleFile();
 bool handleFileRead(String path);
+void handleFile();
+void handleNotFound();
+void handleUpload();
 void handleFileUpload();
 void handleFileDelete();
 void handleFileCreate();
+String handleDirList(String path, int level);
 void handleFileList();
-void handleNotFound();
 void handleNotAllowed();
 //void update_Version();
 
-String handleDirList(String path, int level);
 #endif
 

@@ -3,11 +3,9 @@
 #include "defines.h"
 #define WEBSERVER
 //Update-Version
-//const String mVersionNr = "V00-03-01.tr2.d1_mini";
 const String mVersionNr = "V";
-//char mVersionNr[30] = "V00-03-01.tr2.d1_mini";
 char hardware[5]= "D300";
-char versionNr[30] = "V00-03-03.tr2.d1_mini";
+char versionNr[30] = "V00-03-04.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "3";
 
@@ -30,7 +28,6 @@ char satzKennung = 'X';
   //#include <WiFiClient.h>
   //#include <ESP8266WebServer.h>
   void handleRoot();              // function prototypes for HTTP handlers
-  void handleFile();
   void handleLogin();
   void handleCommand();
   String webCommand = "";
@@ -339,6 +336,7 @@ void toDo(char* eingabe, byte eingabePos){
   int ziffer=0;
   //eingabePos = eingabe.length();
   Serial.println(eingabe);
+  webResult = String(eingabe);
   switch (eingabe[0]){
     case 'a' : for (pos=0; pos<=eingabePos; pos++) ssid[pos] = eingabe[pos+1]; break;
     case 'b' : for (pos=0; pos<=eingabePos; pos++) passwort[pos] = eingabe[pos+1]; break;
@@ -574,28 +572,30 @@ void testIIC()
     }
   }
   hardware[3] = '0';
-  if (nDevices == 0)
-    Serial.println("No I2C devices found\n");
-  else {
+  if (nDevices == 0){
+    webResult = "No I2C devices found";
+    Serial.println(webResult);
+  } else {
+    webResult = "";
     #ifdef IIC_KEYPAD
       if (IOok) { 
-        Serial.print("IO ok - "); 
+        webResult += "IO ok - ";
         hardware[3] = hardware[3] + 1; 
       }
     #endif
     #ifdef IIC_RTC
       if (RTCok) { 
-        Serial.print("RTC ok - "); 
+        webResult += "RTC ok - ";
         hardware[3] = hardware[3] + 2; 
       }
     #endif
     #ifdef IIC_DISPLAY
       if (DISPLAYok) { 
-        Serial.print("DISPLAY ok - "); 
+        webResult += "DISPLAY ok - ";
         hardware[3] = hardware[3] + 4; 
       }
     #endif
-    Serial.println("done\n");
+    Serial.println(webResult);
   }
 }
 #endif
@@ -953,16 +953,15 @@ void handleCommand() {                          // If a POST request is made to 
   if( httpserver.hasArg("password") ) { // If both the username and the password are correct
     keypadUnlocked = (strcmp(httpserver.arg("password").c_str(), keypass) == 0);
     //displayText(3, (char*)"unlocked", 4);
-  }
-  if( keypadUnlocked && httpserver.hasArg("command") ) { // If both the username and the password are correct
-    webCommand = httpserver.arg("command");
-    int webLength = webCommand.length() < 30 ? webCommand.length() : 30;
-    webCommand.toCharArray(eingabe, webLength+1 );
-    Serial.print("ToDo: ");Serial.print(eingabe);Serial.print("-");Serial.println(webLength);
-    toDo(eingabe , webLength);
-    //displayText(3, (char*)"unlocked", 4);
-    String output = "[";
-    output += "{\"lock\":\"";
+    if( keypadUnlocked && httpserver.hasArg("command") ) { // If both the username and the password are correct
+      webCommand = httpserver.arg("command");
+      int webLength = webCommand.length() < 30 ? webCommand.length() : 30;
+      webCommand.toCharArray(eingabe, webLength+1 );
+      Serial.print("ToDo: ");Serial.print(eingabe);Serial.print("-");Serial.println(webLength);
+      toDo(eingabe , webLength);
+      //displayText(3, (char*)"unlocked", 4);
+      String output = "[";
+      output += "{\"lock\":\"";
       output += String(keypadUnlocked);
       output += "\",\"command\":\"";
       output += webCommand;
@@ -976,14 +975,14 @@ void handleCommand() {                          // If a POST request is made to 
       output += message[2];
       output += "\",\"display3\":\"";
       output += message[3];
-      output += "             \",\"display4\":\"";
+      output += "\",\"display4\":\"";
       output += messageState;
-      output += "\"}";
-    
-
-    output += "]";
-    httpserver.send(200, "text/json", output);
+      output += "\"}]";
+      httpserver.send(200, "text/json", output);
+      return;
+    }
   }
+  httpserver.send(200, "text/json", "[{\"command\":\"leere Anfrage oder falsches Passwort\"}]");
   //httpserver.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
   //httpserver.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
 }
@@ -1045,33 +1044,24 @@ void setup() {
   Serial.println("LittleFS total " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
 
   //httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
-  httpserver.onNotFound(handleNotFound);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
-  httpserver.on("/index.html", HTTP_GET, handleFile);
-  httpserver.on("/favicon.ico", HTTP_GET, handleFile);
+  httpserver.onNotFound(handleFile);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
   httpserver.on("/login", HTTP_POST, handleLogin);
   httpserver.on("/command", HTTP_POST, handleCommand);
   httpserver.on("/list", HTTP_POST, handleFileList);
+  httpserver.on("/list", HTTP_GET, handleFileList);
  
+  httpserver.on("/delete", handleFileDelete);
   httpserver.on("/upload", HTTP_GET, []() {
-    String serverIndex = "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
-    if (is_authentified()) {
-      httpserver.sendHeader("Connection", "close");
-      httpserver.sendHeader("Access-Control-Allow-Origin", "*");
-      httpserver.send(200, "text/html", serverIndex);
+    if (!httpserver.authenticate(www_username, www_password)) {
+      return httpserver.requestAuthentication();
     }
+    String serverIndex = "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
+    httpserver.sendHeader("Connection", "close");
+    httpserver.sendHeader("Access-Control-Allow-Origin", "*");
+    httpserver.send(200, "text/html", serverIndex);
   });
-  httpserver.on("/upload", HTTP_POST,/* []() {
-    String serverIndex = "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
-    if (is_authentified()) {
-      httpserver.send(200, "text/html", serverIndex);
-    }
-  }*/handleRoot, handleFileUpload);
+  httpserver.on("/upload", HTTP_POST, handleUpload, handleFileUpload);
   
-  httpserver.on("/upload.json", HTTP_POST, []() {
-    if (is_authentified()) {
-      httpserver.send(200, "text/json", "{\"ok\":1}");
-    }
-  }, handleFileUpload);
   httpserver.begin();
 
   displayChar(messageNTP, 3, '-');
