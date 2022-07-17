@@ -3,11 +3,9 @@
 #include "defines.h"
 #define WEBSERVER
 //Update-Version
-//const String mVersionNr = "V00-03-01.tr2.d1_mini";
 const String mVersionNr = "V";
-//char mVersionNr[30] = "V00-03-01.tr2.d1_mini";
 char hardware[5]= "D300";
-char versionNr[30] = "V00-03-03.tr2.d1_mini";
+char versionNr[30] = "V00-03-04.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "3";
 
@@ -31,6 +29,7 @@ char satzKennung = 'X';
   //#include <ESP8266WebServer.h>
   void handleRoot();              // function prototypes for HTTP handlers
   void handleFile();
+  void handleUpload();
   void handleLogin();
   void handleCommand();
   String webCommand = "";
@@ -48,7 +47,7 @@ char satzKennung = 'X';
 #include <LittleFS.h>
 
 #include "common.h"
-#include "myFS.h"
+//zum Test auskommentiert: #include "myFS.h"
 //#include "log.h"
 #include "ntp.h"
 
@@ -339,6 +338,7 @@ void toDo(char* eingabe, byte eingabePos){
   int ziffer=0;
   //eingabePos = eingabe.length();
   Serial.println(eingabe);
+  webResult = String(eingabe);
   switch (eingabe[0]){
     case 'a' : for (pos=0; pos<=eingabePos; pos++) ssid[pos] = eingabe[pos+1]; break;
     case 'b' : for (pos=0; pos<=eingabePos; pos++) passwort[pos] = eingabe[pos+1]; break;
@@ -363,7 +363,7 @@ void toDo(char* eingabe, byte eingabePos){
     
     case 's' : testSPI(); break;
     case 't' : testIIC(); break;
-    case 'u' : webResult = handleDirList("/",3); Serial.println(webResult); break;
+    //case 'u' : webResult = handleDirList("/",3); Serial.println(webResult); break;
     
     case 'o' : testServer(true); break;
     case 'v' : webResult = String(hardware) +";"+String(versionNr); Serial.println(webResult); break;
@@ -574,28 +574,30 @@ void testIIC()
     }
   }
   hardware[3] = '0';
-  if (nDevices == 0)
-    Serial.println("No I2C devices found\n");
-  else {
+  if (nDevices == 0){
+    webResult = "No I2C devices found";
+    Serial.println(webResult);
+  } else {
+    webResult = "";
     #ifdef IIC_KEYPAD
       if (IOok) { 
-        Serial.print("IO ok - "); 
+        webResult += "IO ok - ";
         hardware[3] = hardware[3] + 1; 
       }
     #endif
     #ifdef IIC_RTC
       if (RTCok) { 
-        Serial.print("RTC ok - "); 
+        webResult += "RTC ok - ";
         hardware[3] = hardware[3] + 2; 
       }
     #endif
     #ifdef IIC_DISPLAY
       if (DISPLAYok) { 
-        Serial.print("DISPLAY ok - "); 
+        webResult += "DISPLAY ok - ";
         hardware[3] = hardware[3] + 4; 
       }
     #endif
-    Serial.println("done\n");
+    Serial.println(webResult);
   }
 }
 #endif
@@ -940,6 +942,10 @@ void handleRoot() {
   httpserver.send(200, "text/html", message );   // Send HTTP status 200 (Ok) and send some text to the browser/client
 }
 
+void handleUpload(){
+  httpserver.send(200, "text/json", "{\"result\":\"ok\"}");
+}
+
 void handleLogin() {                          // If a POST request is made to URI /LED
   if( httpserver.hasArg("password") ) { // If both the username and the password are correct
     keypadUnlocked = (strcmp(httpserver.arg("password").c_str(), keypass) == 0);
@@ -986,6 +992,51 @@ void handleCommand() {                          // If a POST request is made to 
   }
   //httpserver.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
   //httpserver.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
+}
+
+void handleNotFound() {
+  String message = "<pre>File Not Found\n\n";
+  message += "URI: ";
+  message += httpserver.uri();
+  message += "\nMethod: ";
+  message += ( httpserver.method() == HTTP_GET ) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += httpserver.args();
+  message += "\n";
+
+  for ( uint8_t i = 0; i < httpserver.args(); i++ ) {
+    message += " " + httpserver.argName ( i ) + ": " + httpserver.arg ( i ) + "\n";
+  }
+  message += "</pre><br /><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
+
+  httpserver.send ( 404, "text/html", message );
+}
+
+void handleFileUpload() {
+  File fsUploadFile;
+
+  //if (is_authentified()) {
+    HTTPUpload& upload = httpserver.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      String filename = upload.filename;
+      if (!filename.startsWith("/")) filename = "/" + filename;
+      DBG_OUTPUT_PORT.print("handleFileUpload Start: "); DBG_OUTPUT_PORT.println(filename);
+      fsUploadFile = LittleFS.open(filename, "w");
+      filename = String();
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (fsUploadFile) {
+        fsUploadFile.write(upload.buf, upload.currentSize);
+        DBG_OUTPUT_PORT.print("handleFileUpload Data : "); DBG_OUTPUT_PORT.println(upload.currentSize);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (fsUploadFile) {
+        fsUploadFile.close();
+        DBG_OUTPUT_PORT.print("handleFileUpload End  : "); DBG_OUTPUT_PORT.println(upload.totalSize);
+      }
+    } else if (upload.status == UPLOAD_FILE_ABORTED) {
+        DBG_OUTPUT_PORT.println("handleFileUpload Aborted");
+    }
+  //}
 }
 
 byte is_authentified(){
@@ -1044,35 +1095,30 @@ void setup() {
   LittleFS.info(fs_info);
   Serial.println("LittleFS total " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
 
-  //httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
-  httpserver.onNotFound(handleNotFound);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
-  httpserver.on("/index.html", HTTP_GET, handleFile);
-  httpserver.on("/favicon.ico", HTTP_GET, handleFile);
+  httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
+  httpserver.onNotFound(handleNotFound);//handleFile);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
+//  httpserver.on("/favicon.ico", HTTP_GET, handleFile);
   httpserver.on("/login", HTTP_POST, handleLogin);
   httpserver.on("/command", HTTP_POST, handleCommand);
-  httpserver.on("/list", HTTP_POST, handleFileList);
+  //httpserver.on("/list", HTTP_POST, handleFileList);
  
   httpserver.on("/upload", HTTP_GET, []() {
-    String serverIndex = "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
-    if (is_authentified()) {
-      httpserver.sendHeader("Connection", "close");
-      httpserver.sendHeader("Access-Control-Allow-Origin", "*");
-      httpserver.send(200, "text/html", serverIndex);
+    if (!httpserver.authenticate(www_username, www_password)) {
+      return httpserver.requestAuthentication();
     }
+    String serverIndex = "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
+    httpserver.sendHeader("Connection", "close");
+    httpserver.sendHeader("Access-Control-Allow-Origin", "*");
+    httpserver.send(200, "text/html", serverIndex);
   });
-  httpserver.on("/upload", HTTP_POST,/* []() {
-    String serverIndex = "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
-    if (is_authentified()) {
-      httpserver.send(200, "text/html", serverIndex);
-    }
-  }*/handleRoot, handleFileUpload);
+  httpserver.on("/upload", HTTP_POST, handleUpload, handleFileUpload);
   
-  httpserver.on("/upload.json", HTTP_POST, []() {
+ /* httpserver.on("/upload.json", HTTP_POST, []() {
     if (is_authentified()) {
       httpserver.send(200, "text/json", "{\"ok\":1}");
     }
   }, handleFileUpload);
-  httpserver.begin();
+  httpserver.begin();*/
 
   displayChar(messageNTP, 3, '-');
   displayChar(messageONL, 3, '-');

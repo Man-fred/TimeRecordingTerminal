@@ -197,7 +197,7 @@
             </form>
         </div>
         <div class="container">
-            <form method='POST'  action="javascript:void(0);" onsubmit="uploadDoc(this)" enctype='multipart/form-data'>
+            <form method='POST' action="javascript:void(0);" onsubmit="uploadDoc(this)" enctype='multipart/form-data'>
                 <fieldset>
                     <div class="row">
                         <label for="upload">Datei hochladen per xhttp</label>
@@ -224,12 +224,12 @@
             const xhttp = new XMLHttpRequest();
             xhttp.open("POST", "/upload", true);
             //Send the proper header information along with the request
-            xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            xhttp.setRequestHeader("Content-Type", "multipart/form-data");
 
             xhttp.onreadystatechange = function () { // Call a function when the state changes.
                 if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
                     // Request finished. Do processing here.
-                    document.getElementById("upload-result").innerHTML =  this.responseText;
+                    document.getElementById("upload-result").innerHTML = this.responseText;
                 }
             }
             xhttp.send(new FormData(oFormElement));
