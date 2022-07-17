@@ -28,8 +28,6 @@ char satzKennung = 'X';
   //#include <WiFiClient.h>
   //#include <ESP8266WebServer.h>
   void handleRoot();              // function prototypes for HTTP handlers
-  void handleFile();
-  void handleUpload();
   void handleLogin();
   void handleCommand();
   String webCommand = "";
@@ -47,7 +45,7 @@ char satzKennung = 'X';
 #include <LittleFS.h>
 
 #include "common.h"
-//zum Test auskommentiert: #include "myFS.h"
+#include "myFS.h"
 //#include "log.h"
 #include "ntp.h"
 
@@ -363,7 +361,7 @@ void toDo(char* eingabe, byte eingabePos){
     
     case 's' : testSPI(); break;
     case 't' : testIIC(); break;
-    //case 'u' : webResult = handleDirList("/",3); Serial.println(webResult); break;
+    case 'u' : webResult = handleDirList("/",3); Serial.println(webResult); break;
     
     case 'o' : testServer(true); break;
     case 'v' : webResult = String(hardware) +";"+String(versionNr); Serial.println(webResult); break;
@@ -942,10 +940,6 @@ void handleRoot() {
   httpserver.send(200, "text/html", message );   // Send HTTP status 200 (Ok) and send some text to the browser/client
 }
 
-void handleUpload(){
-  httpserver.send(200, "text/json", "{\"result\":\"ok\"}");
-}
-
 void handleLogin() {                          // If a POST request is made to URI /LED
   if( httpserver.hasArg("password") ) { // If both the username and the password are correct
     keypadUnlocked = (strcmp(httpserver.arg("password").c_str(), keypass) == 0);
@@ -959,16 +953,15 @@ void handleCommand() {                          // If a POST request is made to 
   if( httpserver.hasArg("password") ) { // If both the username and the password are correct
     keypadUnlocked = (strcmp(httpserver.arg("password").c_str(), keypass) == 0);
     //displayText(3, (char*)"unlocked", 4);
-  }
-  if( keypadUnlocked && httpserver.hasArg("command") ) { // If both the username and the password are correct
-    webCommand = httpserver.arg("command");
-    int webLength = webCommand.length() < 30 ? webCommand.length() : 30;
-    webCommand.toCharArray(eingabe, webLength+1 );
-    Serial.print("ToDo: ");Serial.print(eingabe);Serial.print("-");Serial.println(webLength);
-    toDo(eingabe , webLength);
-    //displayText(3, (char*)"unlocked", 4);
-    String output = "[";
-    output += "{\"lock\":\"";
+    if( keypadUnlocked && httpserver.hasArg("command") ) { // If both the username and the password are correct
+      webCommand = httpserver.arg("command");
+      int webLength = webCommand.length() < 30 ? webCommand.length() : 30;
+      webCommand.toCharArray(eingabe, webLength+1 );
+      Serial.print("ToDo: ");Serial.print(eingabe);Serial.print("-");Serial.println(webLength);
+      toDo(eingabe , webLength);
+      //displayText(3, (char*)"unlocked", 4);
+      String output = "[";
+      output += "{\"lock\":\"";
       output += String(keypadUnlocked);
       output += "\",\"command\":\"";
       output += webCommand;
@@ -982,61 +975,16 @@ void handleCommand() {                          // If a POST request is made to 
       output += message[2];
       output += "\",\"display3\":\"";
       output += message[3];
-      output += "             \",\"display4\":\"";
+      output += "\",\"display4\":\"";
       output += messageState;
-      output += "\"}";
-    
-
-    output += "]";
-    httpserver.send(200, "text/json", output);
+      output += "\"}]";
+      httpserver.send(200, "text/json", output);
+      return;
+    }
   }
+  httpserver.send(200, "text/json", "[{\"command\":\"leere Anfrage oder falsches Passwort\"}]");
   //httpserver.sendHeader("Location","/");        // Add a header to respond with a new location for the browser to go to the home page again
   //httpserver.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
-}
-
-void handleNotFound() {
-  String message = "<pre>File Not Found\n\n";
-  message += "URI: ";
-  message += httpserver.uri();
-  message += "\nMethod: ";
-  message += ( httpserver.method() == HTTP_GET ) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += httpserver.args();
-  message += "\n";
-
-  for ( uint8_t i = 0; i < httpserver.args(); i++ ) {
-    message += " " + httpserver.argName ( i ) + ": " + httpserver.arg ( i ) + "\n";
-  }
-  message += "</pre><br /><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
-
-  httpserver.send ( 404, "text/html", message );
-}
-
-void handleFileUpload() {
-  File fsUploadFile;
-
-  //if (is_authentified()) {
-    HTTPUpload& upload = httpserver.upload();
-    if (upload.status == UPLOAD_FILE_START) {
-      String filename = upload.filename;
-      if (!filename.startsWith("/")) filename = "/" + filename;
-      DBG_OUTPUT_PORT.print("handleFileUpload Start: "); DBG_OUTPUT_PORT.println(filename);
-      fsUploadFile = LittleFS.open(filename, "w");
-      filename = String();
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-      if (fsUploadFile) {
-        fsUploadFile.write(upload.buf, upload.currentSize);
-        DBG_OUTPUT_PORT.print("handleFileUpload Data : "); DBG_OUTPUT_PORT.println(upload.currentSize);
-      }
-    } else if (upload.status == UPLOAD_FILE_END) {
-      if (fsUploadFile) {
-        fsUploadFile.close();
-        DBG_OUTPUT_PORT.print("handleFileUpload End  : "); DBG_OUTPUT_PORT.println(upload.totalSize);
-      }
-    } else if (upload.status == UPLOAD_FILE_ABORTED) {
-        DBG_OUTPUT_PORT.println("handleFileUpload Aborted");
-    }
-  //}
 }
 
 byte is_authentified(){
@@ -1095,13 +1043,14 @@ void setup() {
   LittleFS.info(fs_info);
   Serial.println("LittleFS total " + String(fs_info.totalBytes)+ ", used " + String(fs_info.usedBytes));
 
-  httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
-  httpserver.onNotFound(handleNotFound);//handleFile);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
-//  httpserver.on("/favicon.ico", HTTP_GET, handleFile);
+  //httpserver.on("/", handleRoot);               // Call the 'handleRoot' function when a client requests URI "/"
+  httpserver.onNotFound(handleFile);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
   httpserver.on("/login", HTTP_POST, handleLogin);
   httpserver.on("/command", HTTP_POST, handleCommand);
-  //httpserver.on("/list", HTTP_POST, handleFileList);
+  httpserver.on("/list", HTTP_POST, handleFileList);
+  httpserver.on("/list", HTTP_GET, handleFileList);
  
+  httpserver.on("/delete", handleFileDelete);
   httpserver.on("/upload", HTTP_GET, []() {
     if (!httpserver.authenticate(www_username, www_password)) {
       return httpserver.requestAuthentication();
@@ -1113,12 +1062,7 @@ void setup() {
   });
   httpserver.on("/upload", HTTP_POST, handleUpload, handleFileUpload);
   
- /* httpserver.on("/upload.json", HTTP_POST, []() {
-    if (is_authentified()) {
-      httpserver.send(200, "text/json", "{\"ok\":1}");
-    }
-  }, handleFileUpload);
-  httpserver.begin();*/
+  httpserver.begin();
 
   displayChar(messageNTP, 3, '-');
   displayChar(messageONL, 3, '-');

@@ -182,28 +182,13 @@
             </form>
         </div>
         <div class="container">
-            <form method='POST' action='/upload' enctype='multipart/form-data'>
-                <fieldset>
-                    <div class="row">
-                        <label for="upload">Datei hochladen</label>
-                    </div>
-                    <div class="row">
-                        <input type='file' id="upload" name='upload'>
-                    </div>
-                    <div class="row">
-                        <input type='submit' value='Hochladen'>
-                    </div>
-                </fieldset>
-            </form>
-        </div>
-        <div class="container">
-            <form method='POST' action="javascript:void(0);" onsubmit="uploadDoc(this)" enctype='multipart/form-data'>
+            <form method='POST'  action="javascript:void(0);" onsubmit="uploadDoc(this)" enctype='multipart/form-data'>
                 <fieldset>
                     <div class="row">
                         <label for="upload">Datei hochladen per xhttp</label>
                     </div>
                     <div class="row">
-                        <input type='file' id="upload" name='upload'>
+                        <input type='file' id="file" name='file'>
                     </div>
                     <div class="row">
                         <input type='submit' value='Hochladen'>
@@ -217,22 +202,34 @@
         <hr />
         <h2>Datenverzeichnis</h2>
         <button type="button" onclick="loadDoc()">Datenverzeichnis anzeigen</button>
+        <p id="delete-result"></p>
         <p id="demo"></p>
     </div>
     <script>
         function uploadDoc(oFormElement) {
             const xhttp = new XMLHttpRequest();
-            xhttp.open("POST", "/upload", true);
+			// collect files
+			const files = document.querySelector('[name=file]').files;
+			const formData = new FormData();
+			formData.append('upload', files[0]);
+
+			// log response
+			xhttp.onload = () => {
+				console.log(xhttp.responseText);
+			};
+            xhttp.open("POST", "/upload");
             //Send the proper header information along with the request
-            xhttp.setRequestHeader("Content-Type", "multipart/form-data");
+            //xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 
             xhttp.onreadystatechange = function () { // Call a function when the state changes.
                 if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
                     // Request finished. Do processing here.
-                    document.getElementById("upload-result").innerHTML = this.responseText;
+                    myObj = JSON.parse(this.responseText);
+                    document.getElementById("upload-result").innerHTML =  myObj.result;
+					document.getElementById("file").value = '';
                 }
             }
-            xhttp.send(new FormData(oFormElement));
+            xhttp.send(formData);
         }
         function loadDoc() {
             const xhttp = new XMLHttpRequest();
@@ -244,10 +241,11 @@
                 if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
                     // Request finished. Do processing here.
                     myObj = JSON.parse(this.responseText);
-                    let text = "<table><tr><th>Typ</th><th>Name</th><th>Größe</th></tr>"
+                    let text = "<table><tr><th>Typ</th><th>Name</th><th>Größe</th><th>Aktion</th></tr>"
                     for (let x in myObj) {
                         if (typeof myObj[x].type != "undefined") {
-                            text += "<tr><td>" + myObj[x].type + "</td><td>" + myObj[x].name + "</td><td>" + myObj[x].size + "</td></tr>";
+                            text += "<tr><td>" + myObj[x].type + "</td><td>" + myObj[x].name + "</td><td>" + myObj[x].size 
+									+ "</td><td><button type=\"button\" onclick=\"deleteDoc('"+myObj[x].name+"')\">Löschen</button></td></tr>";
                         }
                     }
                     text += "</table>"
@@ -257,6 +255,21 @@
                 }
             }
             xhttp.send("dir=/&level=3");
+        }
+        function deleteDoc(path) {
+            const xhttp = new XMLHttpRequest();
+            xhttp.open("POST", "/delete", true);
+            //Send the proper header information along with the request
+            xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+
+            xhttp.onreadystatechange = function () { // Call a function when the state changes.
+                if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+                    // Request finished. Do processing here.
+                    //myObj = JSON.parse(this.responseText);
+                    document.getElementById("delete-result").innerHTML =  this.responseText;//myObj.result;
+                }
+            }
+            xhttp.send("path="+path);
         }
         function loadCmd(event) {
             const xhttp = new XMLHttpRequest();
@@ -269,7 +282,7 @@
                 if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
                     // Request finished. Do processing here.
                     myObj = JSON.parse(this.responseText);
-                    document.getElementById("unlocked").innerHTML = myObj[0].lock ? "ja" : "nein";
+                    document.getElementById("unlocked").innerHTML = myObj.lock ? "ja" : "nein";
                     document.getElementById("webCommand").innerHTML = myObj[0].command;
                     document.getElementById("webCommand").innerHTML = myObj[0].command;
                     document.getElementById("webResult").innerHTML = myObj[0].result;
