@@ -5,14 +5,15 @@
 //Update-Version
 const String mVersionNr = "V";
 char hardware[5]= "D300";
-char versionNr[30] = "V00-03-04.tr2.d1_mini";
+char versionNr[30] = "V01-00-01.tr2.d1_mini";
 //EEPROM-Version
-char versionNeu[2] = "3";
+char versionNeu[2] = "4";
 
 //Sketch
 //String mVersionVariante = "tr2.";
 
 char keypass[21];
+char www_password[21] = "esp8266";
 
 char ssid[32] = "";
 char passwort[64] = "";
@@ -38,7 +39,6 @@ char satzKennung = 'X';
   String authFailResponse = "Authentication Failed";
   
   const char* www_username = "admin";
-  const char* www_password = "esp8266";
 #endif
 
 #include <EEPROM.h>
@@ -354,6 +354,7 @@ void toDo(char* eingabe, byte eingabePos){
                }
                break;
     case 'i' : for (pos=0; pos<=eingabePos; pos++) keypass[pos] = eingabe[pos+1]; break;
+    case 'j' : for (pos=0; pos<=eingabePos; pos++) www_password[pos] = eingabe[pos+1]; break;
     
     case 'r' : configRead(); break;
     case 'p' : configPrint(); break;
@@ -834,19 +835,22 @@ void configRead() {
   LeseEeprom(serverHost, LOGINLAENGE);
   serverPort = LeseEeprom();
   LeseEeprom(keypass, LOGINLAENGE);
-  if (version[0] == '2') {
+  if (version[0] <= '2') {
     myBacklightTimer = BACKLIGHT_KEY;
   } else {
     myBacklightTimer = LeseEeprom();
   }
+  if (version[0] > '3') {
+    LeseEeprom(www_password, sizeof(www_password)); // 
+  }
   LeseEepromCheck();                // V2 Pos 266
-  //version[0] = versionNeu[0];
   EEPROM.end();
 }
+
 void configWrite() {
   z = 0;
   EEPROM.begin(512);
-  SchreibeEeprom(versionNeu,2 );
+  SchreibeEeprom(versionNeu, 2 );
   SchreibeEeprom(ssid, sizeof(ssid));
   SchreibeEeprom(passwort, sizeof(passwort));
   SchreibeEeprom(UpdateServer, LOGINLAENGE);
@@ -857,6 +861,7 @@ void configWrite() {
   SchreibeEeprom(serverPort);
   SchreibeEeprom(keypass, LOGINLAENGE);
   SchreibeEeprom(myBacklightTimer);
+  SchreibeEeprom(www_password, LOGINLAENGE);
   SchreibeEepromCheck();
   EEPROM.commit();
   EEPROM.end();
@@ -873,6 +878,7 @@ void configPrint() {
   Serial.print("g "); Serial.println(serverHost);
   Serial.print("h "); Serial.println(serverPort);
   Serial.print("i "); Serial.println(keypass);
+  Serial.print("j "); Serial.println(www_password);
 }
 
 void Serial_Task() {

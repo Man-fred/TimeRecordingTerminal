@@ -6,11 +6,11 @@
 #include <ESP8266WebServer.h>
 extern ESP8266WebServer httpserver;
 extern char UpdateServer[LOGINLAENGE];
-extern String mVersionNr;
-extern String mVersionVariante;
-extern String mVersionBoard;
+//extern String mVersionNr;
+//extern String mVersionVariante;
+//extern String mVersionBoard;
 extern  const char* www_username;
-extern  const char* www_password;
+extern  char www_password[21];
 
 
 File fsUploadFile;
