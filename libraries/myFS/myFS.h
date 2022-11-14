@@ -4,6 +4,12 @@
 #include "Arduino.h"
 #include <LittleFS.h>
 
+#ifdef USE_HTTP
+  #include <ESP8266WebServer.h>
+#else
+  #include <ESP8266WebServerSecure.h>
+#endif
+
 extern byte is_authentified();
 
 String getContentType(String filename);

@@ -17,8 +17,8 @@
 */
 // enables OTA updates
 #include <ESP8266httpUpdate.h>
-#include <ESP8266WebServer.h>
-ESP8266WebServer server;
+//#include <ESP8266WebServer.h>
+//ESP8266WebServer server;
 
 const char * headerKeys[] = {"User-Agent","Set-Cookie","Cookie","Date","Content-Type","Connection"} ;
 size_t headerKeysCount = 6;

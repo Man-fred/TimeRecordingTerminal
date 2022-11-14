@@ -26,8 +26,6 @@ char terminalId[4] = "99";
 char satzKennung = 'X';
 #include <ESP8266WiFi.h>
 #ifdef WEBSERVER
-  //#include <WiFiClient.h>
-  //#include <ESP8266WebServer.h>
   void handleRoot();              // function prototypes for HTTP handlers
   void handleLogin();
   void handleCommand();
@@ -146,7 +144,12 @@ bool keypadUnlocked = false;
 
 //send and replay
 WiFiClient client; 
-ESP8266WebServer  httpserver(80); 
+#ifdef USE_HTTP
+  extern ESP8266WebServer httpserver;
+#else
+	extern BearSSL::ESP8266WebServerSecure httpserver;
+#endif
+
 bool ServerOk = false;
 String header;
 char data[80];

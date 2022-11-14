@@ -3,8 +3,71 @@
 #include "log.h"
 
 #include <ESP8266httpUpdate.h>
-#include <ESP8266WebServer.h>
-extern ESP8266WebServer httpserver;
+#ifdef USE_HTTP
+  ESP8266WebServer httpserver(80);
+#else
+static const char serverCert[] PROGMEM = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIIDHjCCAgagAwIBAgIIFZifFje1WHcwDQYJKoZIhvcNAQELBQAwFzEVMBMGA1UE
+AxMMQmllbGVtZWllckNBMB4XDTIyMDcyMDE5MzAwMFoXDTIzMDcyMDE5MzAwMFow
+GTEXMBUGA1UEAxMOdHQ5My5mcml0ei5ib3gwggEiMA0GCSqGSIb3DQEBAQUAA4IB
+DwAwggEKAoIBAQD1SgcG2fig0peNGAg5D+svEr+IjRrxDmYPGF+7Br3/8WR+1Igg
+VjxSEaTZg0mmd8o7JhapurC4mEhknawQhanbfTU6dq+4YGuko6AEkmWOAfaX/hm5
+Q8uZtdCg8fdARSl3TzAi0/qO+jcfT6Qr8NdwPOPMBzRt26QYCLfsP7yQl925EZ/M
+hGAFOhnTG2Hu7+OOoV95GOVJoHiRa/cc9ZKugM2KzLf1B4TczkvkHJCWmNDhlr5k
+zbKWN8Qm2xbSA5AnQUvAmQMPorZ6H751likBF5beqLT4eZ48Mvjtbf0PmezjA2EG
+h9NiEMd9fPP5FtxczmN9pJxEdbs45kTvo4QPAgMBAAGjbDBqMAwGA1UdEwEB/wQC
+MAAwHQYDVR0OBBYEFOZU6uV8Hobn/zw7csHbqgoeHi7lMAsGA1UdDwQEAwID6DAT
+BgNVHSUEDDAKBggrBgEFBQcDATAZBgNVHREEEjAQgg50dDkzLmZyaXR6LmJveDAN
+BgkqhkiG9w0BAQsFAAOCAQEAkGxYZtPSMvhAc0TRibURuiFOhv661KqUihYCXJA8
+L9fG0gNdnaXSxU/1v5jpJ11RH49Ckiva35FJqYmwde0NydhTcd1nCiGCwte0jo5p
+4wXnmkgMws3xtD0/DIZ++Pp2E+gz86g89W3snWHYfVHyAOHOEZXgIgpwlRmL7o9I
+F7xaCM7u5PxV/+oaTP634rVrqR7II72SWe/dddwyNtgt/9wuap5FPJU3mqTaOkHm
+OUmWSheeT410TsVhUvQNJTVvacI+kUVeCZoRTUITu+QWpLs1qg/HBZIo/9kGwJw+
+OC0iaWCQJd4oNpVJ9F+OwbUGrNepjqI/UOriXXKT/3l42g==
+-----END CERTIFICATE-----
+)EOF";
+
+static const char serverPrivKey[] PROGMEM = R"EOF(
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpQIBAAKCAQEA9UoHBtn4oNKXjRgIOQ/rLxK/iI0a8Q5mDxhfuwa9//FkftSI
+IFY8UhGk2YNJpnfKOyYWqbqwuJhIZJ2sEIWp2301OnavuGBrpKOgBJJljgH2l/4Z
+uUPLmbXQoPH3QEUpd08wItP6jvo3H0+kK/DXcDzjzAc0bdukGAi37D+8kJfduRGf
+zIRgBToZ0xth7u/jjqFfeRjlSaB4kWv3HPWSroDNisy39QeE3M5L5ByQlpjQ4Za+
+ZM2yljfEJtsW0gOQJ0FLwJkDD6K2eh++dZYpAReW3qi0+HmePDL47W39D5ns4wNh
+BofTYhDHfXzz+RbcXM5jfaScRHW7OOZE76OEDwIDAQABAoIBAQDKov5NFbNFQNR8
+djcM1O7Is6dRaqiwLeH4ZH1pZ3d9QnFwKanPdQ5eCj9yhfhJMrr5xEyCqT0nMn7T
+yEIGYDXjontfsf8WxWkH2TjvrfWBrHOIOx4LJEvFzyLsYxiMmtZXvy6YByD+Dw2M
+q2GH/24rRdI2klkozIOyazluTXU8yOsSGxHr/aOa9/sZISgLmaGOOuKI/3Zqjdhr
+eHeSqoQFt3xXa8jw01YubQUDw/4cv9rk2ytTdAoQUimiKtgtjsggpP1LTq4xcuqN
+d4jWhTcnorWpbD2cVLxrEbnSR3VuBCJEZv5axg5ZPxLEnlcId8vMtvTRb5nzzszn
+geYUWDPhAoGBAPyKVNqqwQl44oIeiuRM2FYenMt4voVaz3ExJX2JysrG0jtCPv+Y
+84R6Cv3nfITz3EZDWp5sW3OwoGr77lF7Tv9tD6BptEmgBeuca3SHIdhG2MR+tLyx
+/tkIAarxQcTGsZaSqra3gXOJCMz9h2P5dxpdU+0yeMmOEnAqgQ8qtNBfAoGBAPim
+RAtnrd0WSlCgqVGYFCvDh1kD5QTNbZc+1PcBHbVV45EmJ2fLXnlDeplIZJdYxmzu
+DMOxZBYgfeLY9exje00eZJNSj/csjJQqiRftrbvYY7m5njX1kM5K8x4HlynQTDkg
+rtKO0YZJxxmjRTbFGMegh1SLlFLRIMtehNhOgipRAoGBAPnEEpJGCS9GGLfaX0HW
+YqwiEK8Il12q57mqgsq7ag7NPwWOymHesxHV5mMh/Dw+NyBi4xAGWRh9mtrUmeqK
+iyICik773Gxo0RIqnPgd4jJWN3N3YWeynzulOIkJnSNx5BforOCTc3uCD2s2YB5X
+jx1LKoNQxLeLRN8cmpIWicf/AoGBANjRSsZTKwV9WWIDJoHyxav/vPb+8WYFp8lZ
+zaRxQbGM6nn4NiZI7OF62N3uhWB/1c7IqTK/bVHqFTuJCrCNcsgld3gLZ2QWYaMV
+kCPgaj1BjHw4AmB0+EcajfKilcqtSroJ6MfMJ6IclVOizkjbByeTsE4lxDmPCDSt
+/9MKanBxAoGAY9xo741Pn9WUxDyRplww606ccdNf/ksHWNc/Y2B5SPwxxSnIq8nO
+j01SmsCUYVFAgZVOTiiycakjYLzxlc6p8BxSVqy6LlJqn95N8OXoQ+bkwUux/ekg
+gz5JWYhbD6c38khSzJb0pNXCo3EuYAVa36kDM96k1BtWuhRS10Q1VXk=
+-----END RSA PRIVATE KEY-----
+)EOF";
+// Attach the server private cert/key combo
+BearSSL::X509List *server_cert = new BearSSL::X509List(serverCert);
+BearSSL::PrivateKey *server_key = new BearSSL::PrivateKey(serverPrivKey);
+
+BearSSL::ESP8266WebServerSecure httpserver(443);
+//BearSSL::ServerSessions serverCache(5);
+httpserver.setRSACert(server_cert, server_key);
+
+
+#endif
+
 extern char UpdateServer[LOGINLAENGE];
 //extern String mVersionNr;
 //extern String mVersionVariante;
@@ -50,7 +113,11 @@ bool handleFileRead(String path) {
 		while(siz > 0) {
 		  size_t len = std::min((int)(sizeof(buf) - 1), siz);
 		  f.read((uint8_t *)buf, len);
-		  httpserver.client().write((const char*)buf, len);
+		  #ifdef USE_HTTP
+		    httpserver.client().write((const char*)buf, len);
+		  #else
+		    httpserver.client().write((const uint8_t*)buf, len);
+		  #endif
 		  siz -= len;
 		}
 	} else {

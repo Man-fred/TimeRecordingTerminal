@@ -12,6 +12,9 @@
 
 #define SPITEST
 #define SPI_RFID
+
+#define USE_HTTPS
+
 // ********** Ende der Einstellungen ****************************************
 
 //??//#include <TimeLib.h>             //<Time.h> http://www.arduino.cc/playground/Code/Time
