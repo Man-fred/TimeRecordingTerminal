@@ -7,7 +7,7 @@
 const String mVersionNr = "V";
 //char mVersionNr[30] = "V00-03-01.tr2.d1_mini";
 char hardware[5]= "D300";
-char versionNr[30] = "V00-03-03.tr2.d1_mini";
+char versionNr[30] = "V00-03-04.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "3";
 

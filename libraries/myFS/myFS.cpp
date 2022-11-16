@@ -34,7 +34,7 @@ String getContentType(String filename) {
 }
 
 bool handleFileRead(String path) {
-  if (path.endsWith("/")) path += "index.htm";
+  if (path.endsWith("/")) path += "index.html";
   String contentType = getContentType(path);
   String pathWithGz = path + ".gz";
   if (LittleFS.exists(pathWithGz) || LittleFS.exists(path)) {
@@ -53,14 +53,12 @@ void handleFile() {
   if (!httpserver.authenticate(www_username, www_password)) {
       return httpserver.requestAuthentication();
   }
-  if (!handleFileRead(httpserver.uri())){
+  String test =  (httpserver.uri() == "/") ? "/index.html" : httpserver.uri();
+  if (!handleFileRead(test)){
 	  handleNotFound();
   }
   /*if (is_authentified()) {
-    String test =  (httpserver.uri() == "/") ? "/index.html" : httpserver.uri();
     return LittleFS.exists(test) ? ({File f = LittleFS.open(test, "r"); httpserver.streamFile(f, mime::getContentType(test)); f.close(); true;}) : httpserver.send(200, "text/html", "<form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>");
-  } else {
-
   }*/
 }
 
