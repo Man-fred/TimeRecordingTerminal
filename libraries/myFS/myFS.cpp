@@ -6,11 +6,11 @@
 #include <ESP8266WebServer.h>
 extern ESP8266WebServer httpserver;
 extern char UpdateServer[LOGINLAENGE];
-extern String mVersionNr;
-extern String mVersionVariante;
-extern String mVersionBoard;
+//extern String mVersionNr;
+//extern String mVersionVariante;
+//extern String mVersionBoard;
 extern  const char* www_username;
-extern  const char* www_password;
+extern  char www_password[21];
 
 
 File fsUploadFile;
@@ -37,24 +37,42 @@ bool handleFileRead(String path) {
   if (path.endsWith("/")) path += "index.html";
   String contentType = getContentType(path);
   String pathWithGz = path + ".gz";
-  if (LittleFS.exists(pathWithGz) || LittleFS.exists(path)) {
-    if (LittleFS.exists(pathWithGz))
-      path += ".gz";
-    File file = LittleFS.open(path, "r");
-    //size_t sent = httpserver.streamFile(file, contentType);
-    httpserver.streamFile(file, contentType);
-    file.close();
+  if (LittleFS.exists(pathWithGz))
+	path += ".gz";
+  if (LittleFS.exists(path)) {
+    DBG_OUTPUT_PORT.print(contentType); 
+	DBG_OUTPUT_PORT.print(" handleFile Stream: "); 
+    File f = LittleFS.open(path, "r");
+	char buf[1024];
+	int siz = f.size();
+	DBG_OUTPUT_PORT.print(siz);DBG_OUTPUT_PORT.print(" ");DBG_OUTPUT_PORT.print(f.name());DBG_OUTPUT_PORT.print(" ");
+	if(false){
+		while(siz > 0) {
+		  size_t len = std::min((int)(sizeof(buf) - 1), siz);
+		  f.read((uint8_t *)buf, len);
+		  httpserver.client().write((const char*)buf, len);
+		  siz -= len;
+		}
+	} else {
+		size_t sent = httpserver.streamFile(f, contentType);
+		DBG_OUTPUT_PORT.print(sent); 
+	}
+	DBG_OUTPUT_PORT.println(path);
+    f.close();
     return true;
   }
   return false;
 }
 
 void handleFile() {
+  DBG_OUTPUT_PORT.print("handleFile Start: "); DBG_OUTPUT_PORT.println(httpserver.uri());
   if (!httpserver.authenticate(www_username, www_password)) {
       return httpserver.requestAuthentication();
   }
+  DBG_OUTPUT_PORT.println("handleFile auth ok: ");
   String test =  (httpserver.uri() == "/") ? "/index.html" : httpserver.uri();
   if (!handleFileRead(test)){
+      DBG_OUTPUT_PORT.println("handleFile not found: ");
 	  handleNotFound();
   }
   /*if (is_authentified()) {
@@ -62,42 +80,62 @@ void handleFile() {
   }*/
 }
 
+void handleNotFound() {
+  String message = "<pre>File Not Found\n\n";
+  message += "URI: ";
+  message += httpserver.uri();
+  message += "\nMethod: ";
+  message += ( httpserver.method() == HTTP_GET ) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += httpserver.args();
+  message += "\n";
+
+  for ( uint8_t i = 0; i < httpserver.args(); i++ ) {
+    message += " " + httpserver.argName ( i ) + ": " + httpserver.arg ( i ) + "\n";
+  }
+  message += "</pre><br /><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
+
+  httpserver.send ( 404, "text/html", message );
+}
+
+void handleUpload(){
+  httpserver.send(200, "text/json", "{\"result\":\"ok\"}");
+}
+
 void handleFileUpload() {
-  //if (is_authentified()) {
-    HTTPUpload& upload = httpserver.upload();
-    if (upload.status == UPLOAD_FILE_START) {
-      String filename = upload.filename;
-      if (!filename.startsWith("/")) filename = "/" + filename;
-      DBG_OUTPUT_PORT.print("handleFileUpload Start: "); DBG_OUTPUT_PORT.println(filename);
-      fsUploadFile = LittleFS.open(filename, "w");
-      filename = String();
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-      if (fsUploadFile) {
-        fsUploadFile.write(upload.buf, upload.currentSize);
-        DBG_OUTPUT_PORT.print("handleFileUpload Data : "); DBG_OUTPUT_PORT.println(upload.currentSize);
-      }
-    } else if (upload.status == UPLOAD_FILE_END) {
-      if (fsUploadFile) {
-        fsUploadFile.close();
-        DBG_OUTPUT_PORT.print("handleFileUpload End  : "); DBG_OUTPUT_PORT.println(upload.totalSize);
-      }
-    } else if (upload.status == UPLOAD_FILE_ABORTED) {
-        DBG_OUTPUT_PORT.println("handleFileUpload Aborted");
-    }
-  //}
+	HTTPUpload& upload = httpserver.upload();
+	if (upload.status == UPLOAD_FILE_START) {
+	  String filename = upload.filename;
+	  if (!filename.startsWith("/")) filename = "/" + filename;
+	  DBG_OUTPUT_PORT.print("handleFileUpload Start: "); DBG_OUTPUT_PORT.println(filename);
+	  fsUploadFile = LittleFS.open(filename, "w");
+	  filename = String();
+	} else if (upload.status == UPLOAD_FILE_WRITE) {
+	  if (fsUploadFile) {
+		fsUploadFile.write(upload.buf, upload.currentSize);
+		DBG_OUTPUT_PORT.print("handleFileUpload Data : "); DBG_OUTPUT_PORT.println(upload.currentSize);
+	  }
+	} else if (upload.status == UPLOAD_FILE_END) {
+	  if (fsUploadFile) {
+		fsUploadFile.close();
+		DBG_OUTPUT_PORT.print("handleFileUpload End  : "); DBG_OUTPUT_PORT.println(upload.totalSize);
+	  }
+	} else if (upload.status == UPLOAD_FILE_ABORTED) {
+		DBG_OUTPUT_PORT.println("handleFileUpload Aborted");
+	}
 }
 
 void handleFileDelete() {
   if (is_authentified()) {
-    if (httpserver.args() == 0) return httpserver.send(500, "text/plain", "BAD ARGS");
+    if (httpserver.args() == 0) return httpserver.send(500, "text/json", "{\"result\":\"BAD ARGS");
     String path = httpserver.arg(0);
     DBG_OUTPUT_PORT.println("handleFileDelete: " + path);
-    if (path == "/")
-      return httpserver.send(500, "text/plain", "BAD PATH");
+    if (path == "/" || path == "/data/01")
+      return httpserver.send(500, "text/json", "{\"result\":\"BAD PATH\"}");
     if (!LittleFS.exists(path))
-      return httpserver.send(404, "text/plain", "FileNotFound");
+      return httpserver.send(404, "text/json", "{\"result\":\"FileNotFound\"}");
     LittleFS.remove(path);
-    httpserver.send(200, "text/plain", "");
+    httpserver.send(200, "text/json", "{\"result\":\"ok\"}");
     path = String();
   }
 }
@@ -165,23 +203,6 @@ void handleFileList() {
 }
 
 
-void handleNotFound() {
-  String message = "<pre>File Not Found\n\n";
-  message += "URI: ";
-  message += httpserver.uri();
-  message += "\nMethod: ";
-  message += ( httpserver.method() == HTTP_GET ) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += httpserver.args();
-  message += "\n";
-
-  for ( uint8_t i = 0; i < httpserver.args(); i++ ) {
-    message += " " + httpserver.argName ( i ) + ": " + httpserver.arg ( i ) + "\n";
-  }
-  message += "</pre><br /><form method='POST' action='/upload' enctype='multipart/form-data'><input type='file' name='upload'><input type='submit' value='Upload'></form>";
-
-  httpserver.send ( 404, "text/html", message );
-}
 void handleNotAllowed() {
   String message = "<pre>File Not Allowed\n\n";
 
