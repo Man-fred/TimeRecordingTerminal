@@ -5,7 +5,7 @@
 //Update-Version
 const String mVersionNr = "V";
 char hardware[5]= "D300";
-char versionNr[30] = "V01-00-02.tr2.d1_mini";
+char versionNr[30] = "V01-00-03.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "4";
 
@@ -843,7 +843,7 @@ void configRead() {
   if (version[0] > '3') {
     LeseEeprom(www_password, sizeof(www_password)); // 
   }
-  LeseEepromCheck();                // V2 Pos 266
+  LeseEepromCheck();                // V2 Pos 266 // V4 Pos 291
   EEPROM.end();
 }
 
@@ -861,7 +861,7 @@ void configWrite() {
   SchreibeEeprom(serverPort);
   SchreibeEeprom(keypass, LOGINLAENGE);
   SchreibeEeprom(myBacklightTimer);
-  SchreibeEeprom(www_password, LOGINLAENGE);
+  SchreibeEeprom(www_password, sizeof(www_password));
   SchreibeEepromCheck();
   EEPROM.commit();
   EEPROM.end();

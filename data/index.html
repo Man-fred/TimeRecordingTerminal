@@ -1,9 +1,10 @@
-<!doctype html><html lang="de">
-	<title>Terminal00</title>
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width">
-		<style>
+<!doctype html>
+<html lang="de">
+    <title>Terminal00</title>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width">
+        <style>
 * {box-sizing: border-box;}
 .blockX {border-radius: 5px;background-color: #a2a2a2;padding: 20px;}
 #blockDisplay{float:left;width:30%;min-width:330px;}
@@ -30,146 +31,148 @@ fieldset {border-radius: 5px;}
 /* Responsive layout - when the screen is less than 600px wide, make the two columns stack on top of each other instead of next to each other */
 @media screen and (max-width: 600px) {.col-25, .col-75, input[type=submit] {width: 100%;margin-top: 0;}}
 		</style>
-	</head>
-	<body>
-		<div id="blockDisplay" class="block">
-		  <h2>Display</h2>
+    </head>
+    <body>
+        <div id="blockDisplay" class="block">
+            <h2>Display</h2>
 <pre id="display">
 <span id="display0">                    </span>
 <span id="display1">                    </span>
 <span id="display2">                    </span>
 <span id="display3">                    </span>
 </pre>
-		</div>
-		<div id="blockStatus" class="block">
-		  <h2>Status</h2>
-		  <p id="all"><br /></p>
-		  <p>Tastatus entsperrt? <span id="unlocked"></span><br/>
-		  letzter Befehl <span id="webCommand"></span><br/>
-		  letztes Ergebnis <span id="webResult"></span><br/>
-		  SW-Version <span id="version"></span></p>
-<div class="container">
-		<form id="formCommand" action="javascript:void(0);" onsubmit="loadCmd(this)">
-   <fieldset>
-      <legend> Befehl zum Terminal schicken</legend>
-  <div class="row">
-    <div class="col-25">
-			<label for="password">Passwort</label>
-    </div>
-    <div class="col-75">
-			<input type="password" name="password" placeholder="Password">
-    </div>
-  </div>
-  <div class="row">
-    <div class="col-25">
-			<label for="command">Befehl</label> 
-    </div>
-    <div class="col-75">
-			<input type="text" name="command" placeholder="Command">
-     </div>
-  </div>
-  <div class="row">
-		    <input type="submit" value="Starte Befehl"></input>
-  </div>
- </fieldset>
-		</form>
-</div>
-<div class="container">
-		<form method='POST' action='/upload' enctype='multipart/form-data'>
-   <fieldset>
-   <div class="row">
-		    <label for="upload">Datei hochladen</label> 
-    </div>
-    <div class="row">
-			<input type='file' id="upload" name='upload'>
-     </div>
-  <div class="row">
-			<input type='submit' value='Hochladen'>
-  </div>
- </fieldset>
-		</form>
-  </div>
-		</div>
-		<div id="blockDaten" class="block">
-		  <hr />
-		  <h2>Datenverzeichnis</h2>
-		  <button type="button" onclick="loadDoc()">Datenverzeichnis anzeigen</button>
-		  <p id="demo"></p>
-		</div>
-		<script>
-			function loadDoc() {
-			  const xhttp = new XMLHttpRequest();
-			  xhttp.open("POST", "/list", true);
-				//Send the proper header information along with the request
-				xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        </div>
+            <h2>Status</h2>
+            <p id="all">
+                <br/>
+            </p>
+            <p>Tastatus entsperrt? <span id="unlocked"/><br/>
+              letzter Befehl <span id="webCommand"/><br/>
+              letztes Ergebnis <span id="webResult"/><br/>
+              SW-Version <span id="version"/>
+            </p>
+            <div class="container">
+                <form id="formCommand" action="javascript:void(0);" onsubmit="loadCmd(this)">
+                    <fieldset>
+                        <legend> Befehl zum Terminal schicken</legend>
+                        <div class="row">
+                            <div class="col-25">
+                                <label for="password">Passwort</label>
+                            </div>
+                            <div class="col-75">
+                                <input type="text" name="password" placeholder="Password">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-25">
+                                <label for="command">Befehl</label>
+                            </div>
+                            <div class="col-75">
+                                <input type="text" name="command" placeholder="Command">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <input type="submit" value="Starte Befehl"/>
+                        </div>
+                    </fieldset>
+                </form>
+            </div>
+            <div class="container">
+                <form method='POST' action='/upload' enctype='multipart/form-data'>
+                    <fieldset>
+                        <div class="row">
+                            <label for="upload">Datei hochladen</label>
+                        </div>
+                        <div class="row">
+                            <input type='file' id="upload" name='upload'>
+                        </div>
+                        <div class="row">
+                            <input type='submit' value='Hochladen'>
+                        </div>
+                    </fieldset>
+                </form>
+            </div>
+        </div>
+        <div id="blockDaten" class="block">
+            <hr/>
+            <h2>Datenverzeichnis</h2>
+            <button type="button" onclick="loadDoc()">Datenverzeichnis anzeigen</button>
+            <p id="demo"/>
+        </div>
+<script>
+console.log("AA");
+function loadDoc() {
+  const xhttp = new XMLHttpRequest();
+  xhttp.open("POST", "/list", true);
+    //Send the proper header information along with the request
+    xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 
-				xhttp.onreadystatechange = function() { // Call a function when the state changes.
-					if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-						// Request finished. Do processing here.
-					  myObj = JSON.parse(this.responseText);
-					  let text = "<table><tr><th>Typ</th><th>Name</th><th>Größe</th></tr>"
-					  for (let x in myObj) {
-					    if (typeof myObj[x].type != "undefined"){
-							text += "<tr><td>" + myObj[x].type + "</td><td>" + myObj[x].name + "</td><td>" + myObj[x].size + "</td></tr>";
-						}
-					  }
-					  text += "</table>"
-					  //text += "<p>"+this.responseText+"</p>";
-					  document.getElementById("demo").innerHTML = text;
-				      //document.getElementById("demo").innerHTML = this.responseText;
-					}
-				}
-				xhttp.send("dir=/&level=3");
-			}
-			function loadCmd(event) {
-			  const xhttp = new XMLHttpRequest();
-			  var params =  'password=' + event.password.value + '&command=' + event.command.value;
-			  xhttp.open("POST", "/command", true);
-				//Send the proper header information along with the request
-				xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhttp.onreadystatechange = function() { // Call a function when the state changes.
+        if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+            // Request finished. Do processing here.
+          myObj = JSON.parse(this.responseText);
+          let text = "<table><tr><th>Typ</th><th>Name</th><th>Größe</th></tr>"
+          for (let x in myObj) {
+            if (typeof myObj[x].type != "undefined"){
+                text += "<tr><td>" + myObj[x].type + "</td><td>" + myObj[x].name + "</td><td>" + myObj[x].size + "</td></tr>";
+            }
+          }
+          text += "</table>"
+          //text += "<p>"+this.responseText+"</p>";
+          document.getElementById("demo").innerHTML = text;
+          //document.getElementById("demo").innerHTML = this.responseText;
+        }
+    }
+    xhttp.send("dir=/&level=3");
+}
+function loadCmd(event) {
+  const xhttp = new XMLHttpRequest();
+  var params =  'password=' + event.password.value + '&command=' + event.command.value;
+  xhttp.open("POST", "/command", true);
+    //Send the proper header information along with the request
+    xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 
-				xhttp.onreadystatechange = function() { // Call a function when the state changes.
-					if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-						// Request finished. Do processing here.
-					  myObj = JSON.parse(this.responseText);
-					  document.getElementById("unlocked").innerHTML = myObj[0].lock ? "ja" : "nein";
-					  document.getElementById("webCommand").innerHTML = myObj[0].command;
-					  document.getElementById("webCommand").innerHTML = myObj[0].command;
-					  document.getElementById("webResult").innerHTML = myObj[0].result;
-					  if (myObj[0].command == "v")
-					    document.getElementById("version").innerHTML = myObj[0].result;
-					  
-					  document.getElementById("display0").innerHTML = myObj[0].display0;
-					  document.getElementById("display1").innerHTML = myObj[0].display1;
-					  document.getElementById("display2").innerHTML = myObj[0].display2;
-					  var display3 = (myObj[0].display3+'              ').substr(0,14)+myObj[0].display4;
-					  document.getElementById("display3").innerHTML = display3;
-				      document.getElementById("all").innerHTML = this.responseText;
-					}
-				}
-				xhttp.send(params);
-			}
-			function loadInfo(event) {
-			  const xhttp = new XMLHttpRequest();
-			  var params =  'password=' + event.password.value + '&command=' + event.command.value;
-			  xhttp.open("GET", "/info", true);
-				//Send the proper header information along with the request
-				//xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhttp.onreadystatechange = function() { // Call a function when the state changes.
+        if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+            // Request finished. Do processing here.
+          myObj = JSON.parse(this.responseText);
+          document.getElementById("unlocked").innerHTML = myObj[0].lock ? "ja" : "nein";
+          document.getElementById("webCommand").innerHTML = myObj[0].command;
+          document.getElementById("webCommand").innerHTML = myObj[0].command;
+          document.getElementById("webResult").innerHTML = myObj[0].result;
+          if (myObj[0].command == "v")
+            document.getElementById("version").innerHTML = myObj[0].result;
+          
+          document.getElementById("display0").innerHTML = myObj[0].display0;
+          document.getElementById("display1").innerHTML = myObj[0].display1;
+          document.getElementById("display2").innerHTML = myObj[0].display2;
+          var display3 = (myObj[0].display3+'              ').substr(0,14)+myObj[0].display4;
+          document.getElementById("display3").innerHTML = display3;
+          document.getElementById("all").innerHTML = this.responseText;
+        }
+    }
+    xhttp.send(params);
+}
+function loadInfo(event) {
+  const xhttp = new XMLHttpRequest();
+  var params =  'password=' + event.password.value + '&command=' + event.command.value;
+  xhttp.open("GET", "/info", true);
+    //Send the proper header information along with the request
+    //xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
 
-				xhttp.onreadystatechange = function() { // Call a function when the state changes.
-					if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-						// Request finished. Do processing here.
-					  myObj = JSON.parse(this.responseText);
-					  document.title =  = myObj[0].title;
-					  document.getElementById("display0").innerHTML = myObj[0].display0;
-				      document.getElementById("all").innerHTML = this.responseText;
-					}
-				}
-				xhttp.send(params);
-			}
-            document.title =  = 'Terminal99';
-            //var x = setInterval(loadInfo, 10000);		
-        </script>
-		
-	</body>
+    xhttp.onreadystatechange = function() { // Call a function when the state changes.
+        if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+            // Request finished. Do processing here.
+          myObj = JSON.parse(this.responseText);
+          document.title = myObj[0].title;
+          document.getElementById("display0").innerHTML = myObj[0].display0;
+          document.getElementById("all").innerHTML = this.responseText;
+        }
+    }
+    xhttp.send(params);
+}
+document.title = 'Terminal99';
+//var x = setInterval(loadInfo, 10000);
+</script>
+</body>
 </html>
