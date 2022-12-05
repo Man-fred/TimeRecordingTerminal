@@ -109,7 +109,7 @@ const uint8_t charBitmap[][8] = {
   #define PIN_SCK D1                // SCK    D1 war D4 
 #endif
 
-int satzNummer = 9999;
+int satzNummer = 0;
 char satzArt[3] = "FO";
 
 //WiFi
@@ -498,7 +498,8 @@ void sendAndReplay(unsigned long id) {
     //R_11J22223__44_________5555555566666666777777____
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second()) ;
     //2020-03-10 snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
-    snprintf(data, 80, "R_%2sJ2222%c__%2s%017lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second(), chipID);
+    satzNummer++;
+    snprintf(data, 80, "R_%2sJ%04d%c__%2s%017lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second(), chipID);
 
     //sendToServer();
     displayChar(messageUPL, 3, '>');
