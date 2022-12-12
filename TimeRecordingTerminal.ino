@@ -156,9 +156,11 @@ int offlineSend = 0;
 
 //RFC
 unsigned long chipID = 1;
-unsigned long chipIDhex = 1;
+unsigned long chipIDhex1 = 1;
+unsigned long chipIDhex2 = 1;
 int chipStatusNotOk = 0;
-unsigned long chipIDPrev = 0;
+unsigned long chipIDPrev1 = 0;
+unsigned long chipIDPrev2 = 0;
 boolean chipFirstLoop = true; // only for tests in loop()
 // MFRC522-Instanz erstellen
 #ifdef SPI_RFID
@@ -169,7 +171,7 @@ byte eingabePos = 0;
 char version[2] = "0";
 
 String Temp = "";
-
+boolean tempDebug = false;
 // Display
 void displayByte(char myChar){
 #ifdef IIC_DISPLAY
@@ -365,6 +367,7 @@ void toDo(char* eingabe, byte eingabePos){
     case 'u' : webResult = handleDirList("/",3); Serial.println(webResult); break;
     
     case 'o' : testServer(true); break;
+    case 'q' : tempDebug = !tempDebug; break;
     case 'v' : webResult = String(hardware) +";"+String(versionNr); Serial.println(webResult); break;
     case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend); break;
     case 'z' : ESP.restart(); break;
@@ -485,7 +488,7 @@ bool sendToServer(bool onlyOffline = false){
   return ServerOk;
 }
 
-void sendAndReplay(unsigned long id) {
+void sendAndReplay(unsigned long id1, unsigned long id2) {
     /*
   1 dppz.terminal.id    99
   2 dppz.satz.nr        0000
@@ -496,10 +499,10 @@ void sendAndReplay(unsigned long id) {
 */
     //snprintf(data, 80, "%s %s %10d 4d%2d%2d%2d%2d%2d       ", message[3][messageWIFI], terminal, id, year(), month(), day(),hour(), minute(), second()) ;
     //R_11J22223__44_________5555555566666666777777____
-    //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second()) ;
+    //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id1, id2, year(), month(), day(),hour(), minute(), second()) ;
     //2020-03-10 snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
     satzNummer++;
-    snprintf(data, 80, "R_%2sJ%04d%c__%2s%017lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzNummer, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second(), chipID);
+    snprintf(data, 80, "R_%2sJ%04d%c__%2s%017lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzNummer, satzKennung, satzArt, id1, year(), month(), day(),hour(), minute(), second(), id2);
 
     //sendToServer();
     displayChar(messageUPL, 3, '>');
@@ -525,7 +528,7 @@ void sendAndReplay(unsigned long id) {
       /////////////////////////////////////////dataWrite();
       //Serial.print("Offline:");
       //Serial.println(data);
-      snprintf(data, 21, "gelesen: %ld         ", id) ;
+      snprintf(data, 21, "gelesen: %ld         ", id1) ;
       displayText(2, data, 4);
       snprintf(data, message3, "Offline: %d          ", (offlineCount - offlineSend) ) ;
       displayText(3, data);
@@ -716,7 +719,7 @@ void connectWifi() {
       WifiConnected = now();
       // now show hint
       chipID = 1;
-      chipIDhex = 1;
+      chipIDhex1 = 1;
     }
   }
 }
@@ -808,7 +811,7 @@ void connectWifi() {
                     }
                   }
                   //displayChar(0,3, keymap[j][i]);
-                  chipIDPrev = 0;
+                  chipIDPrev1 = 0;
                 }
               }
             }
@@ -1081,13 +1084,13 @@ void loop() {
   unsigned long myNow10 = 0;
   unsigned long myNow600 = 0;
 
-  if (chipIDhex > 0) {
+  if (chipIDhex1 > 0) {
     displayText(1, (char*)"Karte bitte ...") ;
     displayText(2, (char*)"");
     displayText(3, (char*)"");
     //CardID resetten
     chipID = 0;
-    chipIDhex = 0;
+    chipIDhex1 = 0;
     chipStatusNotOk = 0;
     snprintf(satzArt, 3, "FO");
     keypadPos = 0;
@@ -1137,7 +1140,8 @@ void loop() {
       if (result == MFRC522::STATUS_OK){
         // Hier wird die ID des Chips in die Variable chipID geladen
         chipID = 0;
-        chipIDhex = 0;
+        chipIDhex1 = 0;
+        chipIDhex2 = 0;
         //Serial.print("chipID 0x");
         for (byte i = 0; i < mfrc522.uid.size; i++){
           byte myByte = mfrc522.uid.uidByte[i];
@@ -1145,20 +1149,28 @@ void loop() {
           //  Serial.print("0");
           //Serial.print(myByte,HEX);
           //BUG!!
-          chipID=((chipID + myByte)*10);
-          chipIDhex=chipIDhex*256 + myByte;
+          //BUG!! chipID=((chipID + myByte)*10);
+          if (i<4) {
+            chipIDhex1=chipIDhex1*256 + myByte;
+          } else {
+            chipIDhex2=chipIDhex2*256 + myByte;
+          }
+          
         }
         //Serial.print("/");
         //Serial.print(chipIDhex);
         //Serial.print("/bisher: ");
         //Serial.println(chipID);
-    
+        if (tempDebug) {
+          mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
+        }
         //... und anschließend ausgegeben wenn nicht doppelt innerhalb von 5 Sekunden
-        if (chipIDhex > 0 and (chipIDhex != chipIDPrev || myNow > myTimeId + 4) ) {
+        if (chipIDhex1 > 0 and (chipIDhex1 != chipIDPrev1 || chipIDhex2 != chipIDPrev2 || myNow > myTimeId + 4) ) {
           displayChar(messageBL, 3, 'C');
           myTimeId = myNow;
-          chipIDPrev = chipIDhex;
-          sendAndReplay(chipIDhex);
+          chipIDPrev1 = chipIDhex1;
+          chipIDPrev2 = chipIDhex2;
+          sendAndReplay(chipIDhex1, chipIDhex2);
         }
         // Danach 0,3 Sekunde pausieren, um mehrfaches lesen /ausführen zu verhindern
         delay(300);
@@ -1170,7 +1182,7 @@ void loop() {
           displayText(2, (char*)"Lesefehler!", 2);
           // Anzeige beim nächsten Loop zurücksetzen
           chipID = 1;
-          chipIDhex = 1;
+          chipIDhex1 = 1;
         }
       }
     }
