@@ -47,10 +47,10 @@ fieldset {border-radius: 5px;}
             <p id="all">
                 <br/>
             </p>
-            <p>Tastatus entsperrt? <span id="unlocked"/><br/>
-              letzter Befehl <span id="webCommand"/><br/>
-              letztes Ergebnis <span id="webResult"/><br/>
-              SW-Version <span id="version"/>
+            <p>Tastatus entsperrt? <span id="unlocked"></span><br/>
+              letzter Befehl <span id="webCommand"></span><br/>
+              letztes Ergebnis <span id="webResult"></span><br/>
+              SW-Version <span id="version"></span>
             </p>
             <div class="container">
                 <form id="formCommand" action="javascript:void(0);" onsubmit="loadCmd(this)">
@@ -154,26 +154,23 @@ function loadCmd(event) {
     }
     xhttp.send(params);
 }
-function loadInfo(event) {
+function loadInfo() {
   const xhttp = new XMLHttpRequest();
-  var params =  'password=' + event.password.value + '&command=' + event.command.value;
   xhttp.open("GET", "/info", true);
-    //Send the proper header information along with the request
-    //xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-
     xhttp.onreadystatechange = function() { // Call a function when the state changes.
         if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-            // Request finished. Do processing here.
           myObj = JSON.parse(this.responseText);
+          document.getElementById("unlocked").innerHTML = myObj[0].lock ? "ja" : "nein";
           document.title = myObj[0].title;
           document.getElementById("display0").innerHTML = myObj[0].display0;
-          document.getElementById("all").innerHTML = this.responseText;
+          document.getElementById("display3").innerHTML = myObj[0].display4;
         }
     }
-    xhttp.send(params);
+    xhttp.send();
 }
 document.title = 'Terminal99';
-//var x = setInterval(loadInfo, 10000);
+var x = setInterval(loadInfo, 10000);
+loadInfo();
 </script>
 </body>
 </html>

@@ -5,7 +5,7 @@
 //Update-Version
 const String mVersionNr = "V";
 char hardware[5]= "D300";
-char versionNr[30] = "V01-00-03.tr2.d1_mini";
+char versionNr[30] = "V01-01-01.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "4";
 
@@ -156,6 +156,7 @@ int offlineSend = 0;
 
 //RFC
 unsigned long chipID = 1;
+byte chipSak = 0;
 unsigned long chipIDhex1 = 1;
 unsigned long chipIDhex2 = 1;
 int chipStatusNotOk = 0;
@@ -268,8 +269,8 @@ void displayChar(int pos, int row, char myChar){
       displayByte(myChar);
     }
   #endif
-  if (pos >=14 && pos <= 19)
-  messageState[pos-14] = myChar;
+  if (pos >=16 && pos <= 19)
+    messageState[pos-16] = myChar;
 }
 
 void setBacklight(int set = 0) {
@@ -368,7 +369,7 @@ void toDo(char* eingabe, byte eingabePos){
     
     case 'o' : testServer(true); break;
     case 'q' : tempDebug = !tempDebug; break;
-    case 'v' : webResult = String(hardware) +";"+String(versionNr); Serial.println(webResult); break;
+    case 'v' : webResult = String(hardware) +";"+String(versionNr)+";"+String(device_name); Serial.println(webResult); break;
     case 'x' : Serial.print("OfflineCount: ");Serial.print(offlineCount);Serial.print(", OfflineSend: ");Serial.println(offlineSend); break;
     case 'z' : ESP.restart(); break;
     case '0' : ota(); break;
@@ -502,7 +503,7 @@ void sendAndReplay(unsigned long id1, unsigned long id2) {
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id1, id2, year(), month(), day(),hour(), minute(), second()) ;
     //2020-03-10 snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
     satzNummer++;
-    snprintf(data, 80, "R_%2sJ%04d%c__%2s%017lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzNummer, satzKennung, satzArt, id1, year(), month(), day(),hour(), minute(), second(), id2);
+    snprintf(data, 80, "R_%2sJ%04d%c__%2s%03d%014lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzNummer, satzKennung, satzArt, chipSak, id1, year(), month(), day(),hour(), minute(), second(), id2);
 
     //sendToServer();
     displayChar(messageUPL, 3, '>');
@@ -959,6 +960,21 @@ void handleLogin() {                          // If a POST request is made to UR
   httpserver.send(303);                         // Send it back to the browser with an HTTP status 303 (See Other) to redirect
 }
 
+void handleInfo() {                          // If a POST request is made to URI /LED
+  String output = "[";
+  output += "{\"lock\":\"";
+  output += String(keypadUnlocked);
+  output += "\",\"title\":\"";
+  output += device_name;
+  output += "\",\"display0\":\"";
+  output += message[0];
+  output += "\",\"display4\":\"";
+  output += messageState;
+  output += "\"}]";
+  httpserver.send(200, "text/json", output);
+  return;
+}
+
 void handleCommand() {                          // If a POST request is made to URI /LED
   if( httpserver.hasArg("password") ) { // If both the username and the password are correct
     keypadUnlocked = (strcmp(httpserver.arg("password").c_str(), keypass) == 0);
@@ -1057,6 +1073,7 @@ void setup() {
   httpserver.onNotFound(handleFile);        // When a client requests an unknown URI (i.e. something other than "/"), call function "handleNotFound"
   httpserver.on("/login", HTTP_POST, handleLogin);
   httpserver.on("/command", HTTP_POST, handleCommand);
+  httpserver.on("/info", HTTP_GET, handleInfo);
   httpserver.on("/list", HTTP_POST, handleFileList);
   httpserver.on("/list", HTTP_GET, handleFileList);
  
@@ -1142,25 +1159,24 @@ void loop() {
         chipID = 0;
         chipIDhex1 = 0;
         chipIDhex2 = 0;
+        chipSak = mfrc522.uid.sak;
         //Serial.print("chipID 0x");
         for (byte i = 0; i < mfrc522.uid.size; i++){
           byte myByte = mfrc522.uid.uidByte[i];
-          //if (myByte < 16)
-          //  Serial.print("0");
-          //Serial.print(myByte,HEX);
-          //BUG!!
           //BUG!! chipID=((chipID + myByte)*10);
-          if (i<4) {
-            chipIDhex1=chipIDhex1*256 + myByte;
+          if ( (mfrc522.uid.size - i) > 4) {
+            chipIDhex2=chipIDhex2 * 256 + myByte;
           } else {
-            chipIDhex2=chipIDhex2*256 + myByte;
+            chipIDhex1=chipIDhex1 * 256 + myByte;
           }
-          
+          if (myByte < 16)
+            Serial.print("0");
+          Serial.print(myByte,HEX);
+          Serial.print("/");
+          Serial.print(chipIDhex1);
+          Serial.print("/");
+          Serial.println(chipIDhex2);
         }
-        //Serial.print("/");
-        //Serial.print(chipIDhex);
-        //Serial.print("/bisher: ");
-        //Serial.println(chipID);
         if (tempDebug) {
           mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
         }
