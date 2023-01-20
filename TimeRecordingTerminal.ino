@@ -5,7 +5,7 @@
 //Update-Version
 const String mVersionNr = "V";
 char hardware[5]= "D300";
-char versionNr[30] = "V01-01-01.tr2.d1_mini";
+char versionNr[30] = "V01-01-02.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "4";
 
@@ -423,8 +423,8 @@ bool sendToServer(bool onlyOffline = false){
             line.toCharArray(dataReturn, 42);
             displayText(3, dataReturn+20);
             offlineSend++;
-            snprintf(data, message3, "Offline: %d          ", (offlineCount - offlineSend) ) ;
-            displayText(3, data);
+            snprintf(dataReturn, message3, "Offline: %d          ", (offlineCount - offlineSend) ) ;
+            displayText(3, dataReturn);
             File fout = LittleFS.open("/data/offline", "a");
             if (fout) {
               fout.write(offlineSend);
@@ -503,6 +503,8 @@ void sendAndReplay(unsigned long id1, unsigned long id2) {
     //snprintf(data, 80, "R%3sJ%4d%c__%2s_________%08d%04d%02d%02d%02d%02d%02d____", message[3][messageWIFI], terminalId, satzNummer, satzKennung, satzArt, id1, id2, year(), month(), day(),hour(), minute(), second()) ;
     //2020-03-10 snprintf(data, 80, "R_%2sJ2222%c__%2s_____%012lu%04d%02d%02d%02d%02d%02d____", terminalId, satzKennung, satzArt, id, year(), month(), day(),hour(), minute(), second());
     satzNummer++;
+                      //1 3  5        1  1   1     3   3   3   4   4   4    4     6
+                      //              3  5   8     2   6   8   0   2   4    7     4
     snprintf(data, 80, "R_%2sJ%04d%c__%2s%03d%014lu%04d%02d%02d%02d%02d%02d_%017lu", terminalId, satzNummer, satzKennung, satzArt, chipSak, id1, year(), month(), day(),hour(), minute(), second(), id2);
 
     //sendToServer();
@@ -1169,6 +1171,7 @@ void loop() {
           } else {
             chipIDhex1=chipIDhex1 * 256 + myByte;
           }
+          /*
           if (myByte < 16)
             Serial.print("0");
           Serial.print(myByte,HEX);
@@ -1176,6 +1179,7 @@ void loop() {
           Serial.print(chipIDhex1);
           Serial.print("/");
           Serial.println(chipIDhex2);
+          */
         }
         if (tempDebug) {
           mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
