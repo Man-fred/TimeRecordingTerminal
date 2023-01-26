@@ -5,7 +5,7 @@
 //Update-Version
 const String mVersionNr = "V";
 char hardware[5]= "D300";
-char versionNr[30] = "V01-01-02.tr2.d1_mini";
+char versionNr[30] = "V01-01-03.tr2.d1_mini";
 //EEPROM-Version
 char versionNeu[2] = "4";
 
@@ -99,7 +99,7 @@ const uint8_t charBitmap[][8] = {
                                      // MISO   D6
                                      // IRQ    0 , war D1 -> D3 ?
                                      // GND
-  #define RST_PIN         0         // RST    D0 (GPIO16) auf gleicher Reihe wie D5-D8, war D3(GPIO0), Test mit UNUSED_PIN keine Funktion
+  #define RST_PIN         0          // RST    D0 (GPIO16) auf gleicher Reihe wie D5-D8, war D3(GPIO0), Test mit UNUSED_PIN keine Funktion
                                      // 3.3
 #endif
 
